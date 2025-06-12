@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { AccountsModule } from './accounts/accounts.module';
+import { RecipientsModule } from './recipients/recipients.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AccountsModule } from './accounts/accounts.module';
       logging: true,               // Optional: show SQL queries in the console
     }),
     AccountsModule,
+    RecipientsModule,
     // ...other modules
   ],
 })
