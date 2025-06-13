@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { AccountsModule } from './accounts/accounts.module';
 import { RecipientsModule } from './recipients/recipients.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { RecipientsModule } from './recipients/recipients.module';
     }),
     AccountsModule,
     RecipientsModule,
+    TransactionsModule,
     // ...other modules
   ],
 })

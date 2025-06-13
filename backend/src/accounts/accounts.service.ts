@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Account, AccountType } from './accounts.entity';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
+import { Transaction } from 'src/transactions/transactions.entity';
 
 // If you have a Transaction entity, import it for relation checks
 // import { Transaction } from '../transactions/transaction.entity';
@@ -14,8 +15,8 @@ export class AccountsService {
     @InjectRepository(Account)
     private readonly accountRepository: Repository<Account>,
     // If you want to restrict delete, inject transaction repo too:
-    // @InjectRepository(Transaction)
-    // private readonly transactionRepository: Repository<Transaction>,
+     @InjectRepository(Transaction)
+     private readonly transactionRepository: Repository<Transaction>,
   ) {}
 
   /** 1. Create a new account */
@@ -74,14 +75,47 @@ export class AccountsService {
     return await this.accountRepository.findOne({ where: { account_number } });
   }
 
-  /** 7. Calculate/display current balance (to be enhanced with transactions later) */
-  async getCurrentBalance(id: number): Promise<number> {
-    const account = await this.accountRepository.findOne({ where: { id } });
-    if (!account) {
-      throw new NotFoundException('Account not found.');
+  async getCurrentBalance(accountId: number): Promise<number> {
+    const account = await this.accountRepository.findOne({ where: { id: accountId } });
+    if (!account) throw new NotFoundException('Account not found.');
+
+    // Fetch all transactions where this account is either main account or "to_account" (for credits)
+    const transactions = await this.transactionRepository.find({
+      where: [
+        { account: { id: accountId } },
+        { to_account: { id: accountId } },
+      ],
+      relations: ['account', 'to_account'],
+    });
+
+    let balance = Number(account.opening_balance);
+
+    for (const tx of transactions) {
+      // Skip cancelled/failed/bounced for balance
+      if (
+        ['cancelled', 'failed', 'bounced'].includes(tx.status)
+      ) {
+        continue;
+      }
+
+      // Money going out (debit)
+      if (
+        tx.account.id === accountId &&
+        ['cheque', 'online', 'bank_charge', 'other', 'internal_transfer'].includes(tx.transaction_type)
+      ) {
+        balance -= Number(tx.amount);
+      }
+
+      // Money coming in (credit)
+      if (
+        (tx.to_account && tx.to_account.id === accountId && ['internal_transfer'].includes(tx.transaction_type)) ||
+        (tx.account.id === accountId && ['cash_deposit'].includes(tx.transaction_type))
+      ) {
+        balance += Number(tx.amount);
+      }
     }
-    // Future: Add/subtract all transaction amounts to/from opening_balance
-    return Number(account.opening_balance);
+
+    return balance;
   }
 
   /** 8. Get all accounts by type */
