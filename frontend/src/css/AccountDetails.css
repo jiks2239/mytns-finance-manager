@@ -1,0 +1,50 @@
+.account-details-bg {
+  width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100vh;
+  background: #f7f9fb;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1;
+}
+
+.account-details-card {
+  max-width: 480px;
+  width: 100%;
+  background: #fff;
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 4px 32px 0 rgba(60,60,90,0.08);
+}
+
+.account-details-title {
+  margin-bottom: 24px;
+  text-align: center;
+  color: #222;
+  font-weight: 700;
+}
+
+.account-details-row {
+  margin-bottom: 12px;
+  font-size: 1rem;
+}
+
+.account-details-label {
+  font-weight: 600;
+  color: #333;
+}
+
+.account-details-value {
+  margin-left: 10px;
+  color: #222;
+}
+
+@media (max-width: 600px) {
+  .account-details-card {
+    padding: 14px;
+  }
+}

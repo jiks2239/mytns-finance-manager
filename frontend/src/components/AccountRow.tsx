@@ -23,7 +23,7 @@ interface AccountRowProps {
   account: Account;
   balance?: number;
   onView: (id: number) => void;
-  onEdit: (id: number) => void;
+  onEdit: (account: Account) => void;
   onDelete: (id: number) => void;
   // onTransactions?: (id: number) => void; // Uncomment if needed
 }
@@ -53,7 +53,7 @@ const AccountRow: React.FC<AccountRowProps> = ({
     </td>
     <td className="actions-cell">
       <button className="action-btn" onClick={() => onView(account.id)}>View</button>
-      <button className="action-btn" onClick={() => onEdit(account.id)}>Edit</button>
+      <button className="action-btn" onClick={() => onEdit(account)}>Edit</button>
       <button className="action-btn" onClick={() => onDelete(account.id)}>Delete</button>
       {/* <button className="action-btn" onClick={() => onTransactions?.(account.id)}>Transactions</button> */}
     </td>
