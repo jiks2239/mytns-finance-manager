@@ -1,0 +1,83 @@
+.dashboard-container {
+  min-height: 100vh;
+  width: 100vw;
+  background: #f7f9fb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.dashboard-title {
+  margin-top: 48px;
+  margin-bottom: 16px;
+  font-weight: 700;
+  color: #223;
+  font-size: 2rem;
+}
+
+.add-account-btn {
+  margin-bottom: 32px;
+  padding: 12px 28px;
+  font-size: 1rem;
+  border-radius: 8px;
+  border: none;
+  background: #3563e9;
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(53,99,233,0.12);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.add-account-btn:hover {
+  background: #2746b7;
+}
+
+.accounts-table {
+  width: 90vw;
+  max-width: 1200px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 18px rgba(0,0,0,0.08);
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 40px;
+}
+
+.accounts-table th,
+.accounts-table td {
+  padding: 18px 14px;
+  font-size: 1rem;
+}
+
+.accounts-table thead tr {
+  background: #e7ebf5;
+}
+
+.accounts-table th {
+  font-weight: 700;
+  color: #334;
+  border-bottom: 2px solid #d4d7e0;
+}
+
+.accounts-table td {
+  color: #222;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.accounts-table tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 900px) {
+  .accounts-table {
+    width: 98vw;
+    font-size: 0.92rem;
+  }
+  .dashboard-title {
+    font-size: 1.3rem;
+  }
+  .add-account-btn {
+    width: 100%;
+  }
+}
