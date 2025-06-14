@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import '../css/AddAccountModal.css';
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -7,18 +8,18 @@ interface AddAccountModalProps {
 }
 
 const ACCOUNT_TYPES = [
-  'current',
-  'savings',
-  'cash',
-  'credit_card',
-  'loan',
-  'other',
+  { value: 'current', label: 'Current Account' },
+  { value: 'savings', label: 'Savings Account' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'credit_card', label: 'Credit Card' },
+  { value: 'loan', label: 'Loan' },
+  { value: 'other', label: 'Other' },
 ];
 
 const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose, onAccountAdded }) => {
   const [account_name, setAccountName] = useState('');
   const [account_number, setAccountNumber] = useState('');
-  const [account_type, setAccountType] = useState('current');
+  const [account_type, setAccountType] = useState('');
   const [bank_name, setBankName] = useState('');
   const [opening_balance, setOpeningBalance] = useState('');
   const [loading, setLoading] = useState(false);
@@ -45,7 +46,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose, onAc
       if (!res.ok) throw new Error('Failed to add account');
       setAccountName('');
       setAccountNumber('');
-      setAccountType('current');
+      setAccountType('');
       setBankName('');
       setOpeningBalance('');
       onAccountAdded();
@@ -57,34 +58,51 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose, onAc
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-      background: 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-    }}>
-      <form onSubmit={handleSubmit} style={{ background: 'white', padding: 32, borderRadius: 8, minWidth: 300 }}>
+    <div className="add-account-modal-overlay">
+      <form onSubmit={handleSubmit} className="add-account-modal-form">
         <h3>Add Account</h3>
         <div>
-          <label>Account Name: <input required value={account_name} onChange={e => setAccountName(e.target.value)} /></label>
+          <label>
+            Account Name:
+            <input required value={account_name} onChange={e => setAccountName(e.target.value)} />
+          </label>
         </div>
         <div>
-          <label>Account Number: <input value={account_number} onChange={e => setAccountNumber(e.target.value)} /></label>
+          <label>
+            Account Number:
+            <input value={account_number} onChange={e => setAccountNumber(e.target.value)} />
+          </label>
         </div>
         <div>
-          <label>Account Type:
+          <label>
+            Account Type:
             <select value={account_type} onChange={e => setAccountType(e.target.value)}>
-              {ACCOUNT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+              <option value="" disabled>
+                -- Select Account Type --
+              </option>
+              {ACCOUNT_TYPES.map(type => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
             </select>
           </label>
         </div>
         <div>
-          <label>Bank Name: <input value={bank_name} onChange={e => setBankName(e.target.value)} /></label>
+          <label>
+            Bank Name:
+            <input value={bank_name} onChange={e => setBankName(e.target.value)} />
+          </label>
         </div>
         <div>
-          <label>Opening Balance: <input required type="number" value={opening_balance} onChange={e => setOpeningBalance(e.target.value)} /></label>
+          <label>
+            Opening Balance:
+            <input required type="number" value={opening_balance} onChange={e => setOpeningBalance(e.target.value)} />
+          </label>
         </div>
-        {error && <div style={{ color: 'red' }}>{error}</div>}
-        <div style={{ marginTop: 16 }}>
-          <button type="button" onClick={onClose} style={{ marginRight: 8 }} disabled={loading}>Cancel</button>
+        {error && <div className="add-account-modal-error">{error}</div>}
+        <div className="add-account-modal-actions">
+          <button type="button" onClick={onClose} disabled={loading}>Cancel</button>
           <button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Add Account'}</button>
         </div>
       </form>

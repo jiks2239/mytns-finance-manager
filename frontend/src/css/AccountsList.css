@@ -46,8 +46,15 @@
 
 .accounts-table th,
 .accounts-table td {
+  white-space: nowrap;
+  text-align: center;
   padding: 18px 14px;
   font-size: 1rem;
+}
+
+.accounts-table th.balance-header,
+.accounts-table td.balance-cell {
+  text-align: right;
 }
 
 .accounts-table thead tr {
@@ -69,6 +76,21 @@
   border-bottom: none;
 }
 
+.action-btn {
+  background: #3563e9;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin-right: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.action-btn:hover {
+  background: #2746b7;
+}
+
 @media (max-width: 900px) {
   .accounts-table {
     width: 98vw;
@@ -80,4 +102,7 @@
   .add-account-btn {
     width: 100%;
   }
+}
+.accounts-table th.actions-header {
+  text-align: center;
 }

@@ -1,5 +1,14 @@
 import React from 'react';
 
+const ACCOUNT_TYPE_LABELS: Record<string, string> = {
+  current: "Current Account",
+  savings: "Savings Account",
+  cash: "Cash",
+  credit_card: "Credit Card",
+  loan: "Loan",
+  other: "Other"
+};
+
 // Define the shape of an account (adjust as per your backend)
 export interface Account {
   id: number;
@@ -30,15 +39,23 @@ const AccountRow: React.FC<AccountRowProps> = ({
   <tr>
     <td>{account.account_name}</td>
     <td>{account.account_number}</td>
-    <td>{account.account_type}</td>
+    <td>{ACCOUNT_TYPE_LABELS[account.account_type] || account.account_type}</td>
     <td>{account.bank_name}</td>
-    <td>{account.opening_balance}</td>
-    <td>{balance !== undefined ? balance : '...'}</td>
-    <td>
-      <button onClick={() => onView(account.id)}>View</button>
-      <button onClick={() => onEdit(account.id)}>Edit</button>
-      <button onClick={() => onDelete(account.id)}>Delete</button>
-      {/* <button onClick={() => onTransactions?.(account.id)}>Transactions</button> */}
+    <td className="balance-cell">
+      {Number(account.opening_balance)
+        .toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 })
+        .replace(/\s/g, '').replace('.00', '') + '/-'}
+    </td>
+    <td className="balance-cell">
+      {balance !== undefined
+        ? balance.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }).replace(/\s/g, '').replace('.00', '') + '/-'
+        : '...'}
+    </td>
+    <td className="actions-cell">
+      <button className="action-btn" onClick={() => onView(account.id)}>View</button>
+      <button className="action-btn" onClick={() => onEdit(account.id)}>Edit</button>
+      <button className="action-btn" onClick={() => onDelete(account.id)}>Delete</button>
+      {/* <button className="action-btn" onClick={() => onTransactions?.(account.id)}>Transactions</button> */}
     </td>
   </tr>
 );
