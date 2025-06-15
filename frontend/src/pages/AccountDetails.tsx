@@ -16,6 +16,7 @@ const ACCOUNT_TYPE_LABELS: { [key: string]: string } = {
 const AccountDetails: React.FC = () => {
   const { id } = useParams();
   const [account, setAccount] = useState<any>(null);
+  const [balance, setBalance] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchAccount() {
@@ -23,7 +24,17 @@ const AccountDetails: React.FC = () => {
       const data = await res.json();
       setAccount(data);
     }
+    async function fetchBalance() {
+      try {
+        const res = await fetch(`${API_BASE}/accounts/${id}/balance`);
+        const data = await res.json();
+        setBalance(data.balance);
+      } catch (e) {
+        setBalance(null);
+      }
+    }
     fetchAccount();
+    fetchBalance();
   }, [id]);
 
   if (!account) {
@@ -69,7 +80,7 @@ const AccountDetails: React.FC = () => {
         </div>
         <div className="account-details-row">
           <span className="account-details-label">Current Balance:</span>
-          <span className="account-details-value">{formatCurrency(account.balance)}</span>
+          <span className="account-details-value">{formatCurrency(balance)}</span>
         </div>
       </div>
     </div>

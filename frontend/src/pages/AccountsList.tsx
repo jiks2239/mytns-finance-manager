@@ -72,10 +72,6 @@ const AccountsList: React.FC = () => {
           <thead>
             <tr>
               <th>Account Name</th>
-              <th>Account Number</th>
-              <th>Account Type</th>
-              <th>Bank Name</th>
-              <th className='balance-header'>Opening Balance</th>
               <th className='balance-header'>Current Balance</th>
               <th className="actions-header">Actions</th>
             </tr>

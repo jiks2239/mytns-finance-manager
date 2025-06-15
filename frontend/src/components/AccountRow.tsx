@@ -38,14 +38,6 @@ const AccountRow: React.FC<AccountRowProps> = ({
 }) => (
   <tr>
     <td>{account.account_name}</td>
-    <td>{account.account_number}</td>
-    <td>{ACCOUNT_TYPE_LABELS[account.account_type] || account.account_type}</td>
-    <td>{account.bank_name}</td>
-    <td className="balance-cell">
-      {Number(account.opening_balance)
-        .toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 })
-        .replace(/\s/g, '').replace('.00', '') + '/-'}
-    </td>
     <td className="balance-cell">
       {balance !== undefined
         ? balance.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }).replace(/\s/g, '').replace('.00', '') + '/-'
