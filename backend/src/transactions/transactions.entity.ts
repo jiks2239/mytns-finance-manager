@@ -22,7 +22,15 @@ export class Transaction {
   @Column({ type: 'enum', enum: TransactionType })
   transaction_type: TransactionType;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string | number) => Number(value),
+    },
+  })
   amount: number;
 
   @ManyToOne(() => Account, { nullable: false })
@@ -40,6 +48,9 @@ export class Transaction {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
+  @Column({ type: 'date', nullable: true })
+  transaction_date?: Date; // <-- ensure this exists
+
   @CreateDateColumn()
   created_at: Date;
 
@@ -47,12 +58,24 @@ export class Transaction {
   updated_at: Date;
 
   // Child relations
-  @OneToOne(() => ChequeTransactionDetails, chequeDetails => chequeDetails.transaction, { cascade: true })
+  @OneToOne(
+    () => ChequeTransactionDetails,
+    (chequeDetails) => chequeDetails.transaction,
+    { cascade: true },
+  )
   cheque_details?: ChequeTransactionDetails;
 
-  @OneToOne(() => OnlineTransferDetails, onlineDetails => onlineDetails.transaction, { cascade: true })
+  @OneToOne(
+    () => OnlineTransferDetails,
+    (onlineDetails) => onlineDetails.transaction,
+    { cascade: true },
+  )
   online_transfer_details?: OnlineTransferDetails;
 
-  @OneToOne(() => BankChargeDetails, chargeDetails => chargeDetails.transaction, { cascade: true })
+  @OneToOne(
+    () => BankChargeDetails,
+    (chargeDetails) => chargeDetails.transaction,
+    { cascade: true },
+  )
   bank_charge_details?: BankChargeDetails;
 }

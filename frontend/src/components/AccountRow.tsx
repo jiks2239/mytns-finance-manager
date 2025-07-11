@@ -1,13 +1,5 @@
 import React from 'react';
 
-const ACCOUNT_TYPE_LABELS: Record<string, string> = {
-  current: "Current Account",
-  savings: "Savings Account",
-  cash: "Cash",
-  credit_card: "Credit Card",
-  loan: "Loan",
-  other: "Other"
-};
 
 // Define the shape of an account (adjust as per your backend)
 export interface Account {
@@ -22,32 +14,37 @@ export interface Account {
 interface AccountRowProps {
   account: Account;
   balance?: number;
-  onView: (id: number) => void;
   onEdit: (account: Account) => void;
   onDelete: (id: number) => void;
-  // onTransactions?: (id: number) => void; // Uncomment if needed
+  onAccountNameClick?: (id: number) => void;
 }
 
 const AccountRow: React.FC<AccountRowProps> = ({
   account,
   balance,
-  onView,
   onEdit,
   onDelete,
-  // onTransactions,
+  onAccountNameClick,
 }) => (
   <tr>
-    <td>{account.account_name}</td>
+    <td
+      className="account-name-cell"
+      tabIndex={0}
+      onClick={() => onAccountNameClick?.(account.id)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onAccountNameClick?.(account.id); }}
+      role="button"
+      aria-label={`View details for ${account.account_name}`}
+    >
+      {account.account_name}
+    </td>
     <td className="balance-cell">
       {balance !== undefined
         ? balance.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }).replace(/\s/g, '').replace('.00', '') + '/-'
         : '...'}
     </td>
     <td className="actions-cell">
-      <button className="action-btn" onClick={() => onView(account.id)}>View</button>
-      <button className="action-btn" onClick={() => onEdit(account)}>Edit</button>
-      <button className="action-btn" onClick={() => onDelete(account.id)}>Delete</button>
-      {/* <button className="action-btn" onClick={() => onTransactions?.(account.id)}>Transactions</button> */}
+      <button className="common-action-btn edit" onClick={() => onEdit(account)}>Edit</button>
+      <button className="common-action-btn delete" onClick={() => onDelete(account.id)}>Delete</button>
     </td>
   </tr>
 );

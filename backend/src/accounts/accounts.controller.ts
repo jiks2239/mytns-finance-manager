@@ -31,7 +31,13 @@ export class AccountsController {
     if (type) {
       return await this.accountsService.findByType(type);
     }
-    return await this.accountsService.findAll();
+    // Ensure all accounts return both id and account_name
+    const accounts = await this.accountsService.findAll();
+    return accounts.map((acc) => ({
+      id: acc.id,
+      account_name: acc.account_name,
+      // Optionally include other fields as needed
+    }));
   }
 
   /** 3. Get a single account by ID */
@@ -59,7 +65,8 @@ export class AccountsController {
   /** 6. Get an account by account number */
   @Get('number/:account_number')
   async findByAccountNumber(@Param('account_number') account_number: string) {
-    const result = await this.accountsService.findByAccountNumber(account_number);
+    const result =
+      await this.accountsService.findByAccountNumber(account_number);
     if (!result) throw new BadRequestException('Account not found.');
     return result;
   }

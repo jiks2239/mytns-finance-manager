@@ -1,93 +1,106 @@
+@import './Common.css';
+
 .add-account-modal-overlay {
   position: fixed;
   top: 0; left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0,0,0,0.25);
+  background: rgba(33, 37, 41, 0.20);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 1000;
+  overflow: auto;
 }
 
 .add-account-modal-form {
   background: #fff;
-  padding: 32px;
   border-radius: 10px;
-  min-width: 320px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+  min-width: 320px;
+  max-width: 95vw;
+  width: 400px;
+  margin: 32px auto;
+  padding: 32px 32px 24px 32px;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  gap: 18px;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .add-account-modal-form h3 {
-  margin-top: 0;
-  margin-bottom: 18px;
+  display: none;
 }
 
 .add-account-modal-form label {
   display: flex;
   flex-direction: column;
   font-weight: 500;
-  margin-bottom: 14px;
+  margin-bottom: 0;
   color: #222;
 }
 
 .add-account-modal-form input,
 .add-account-modal-form select {
+  width: 100%;
   margin-top: 4px;
-  padding: 7px 10px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  font-size: 1rem;
-  background: #fff;
-  color: #222;
-  transition: border-color 0.18s, background 0.18s, color 0.18s;
-}
-
-.add-account-modal-form input:focus,
-.add-account-modal-form select:focus {
-  outline: none;
-  border-color: #3563e9;
-  background: #fff;
-  color: #222;
 }
 
 .add-account-modal-actions {
   margin-top: 18px;
   display: flex;
   gap: 10px;
+  justify-content: flex-end;
 }
 
-.add-account-modal-form button[type="submit"] {
-  background: #3563e9;
-  color: white;
-  border: none;
-  padding: 8px 22px;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.add-account-modal-form button[type="submit"]:hover {
-  background: #2746b7;
-}
-.add-account-modal-form button[type="button"] {
-  background: #e0e7ff;
-  color: #223;
-  border: none;
-  padding: 8px 20px;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.add-account-modal-form button[type="button"]:hover {
-  background: #c7d2fe;
+/* For AddTransactionModal if it uses a different class: */
+.add-transaction-modal {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+  min-width: 320px;
+  max-width: 95vw;
+  width: 400px;
+  margin: 32px auto;
+  padding: 32px 32px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 18px;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
-.add-account-modal-error {
-  color: #e01111;
-  margin-bottom: 8px;
-  font-weight: 500;
+button,
+.btn-primary,
+.btn-green,
+.btn-blue,
+.account-details-back-btn,
+.common-action-btn,
+.add-account-btn-wrapper .btn-primary {
+  min-width: 120px;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 24px;
+  font-size: 1rem;
+  border-radius: 8px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-green {
+  background: #1db954 !important;
+  color: #fff !important;
+  border: none !important;
+}
+.btn-blue {
+  background: #2563eb !important;
+  color: #fff !important;
+  border: none !important;
 }

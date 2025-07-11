@@ -1,66 +1,31 @@
-.dashboard-container {
-  min-height: 100vh;
-  width: 100vw;
-  background: #f7f9fb;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-}
+@import './Common.css';
+
+/* Page-specific overrides for AccountsList */
 
 .dashboard-title {
-  margin-top: 48px;
-  margin-bottom: 16px;
-  font-weight: 700;
-  color: #223;
-  font-size: 2rem;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
   text-align: center;
+  margin-bottom: 1.5rem;
 }
 
-.add-account-btn {
-  margin-bottom: 32px;
-  padding: 12px 28px;
-  font-size: 1rem;
-  border-radius: 8px;
-  border: none;
-  background: #3563e9;
-  color: white;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(53,99,233,0.12);
-  cursor: pointer;
-  transition: background 0.2s;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-}
-.add-account-btn:hover {
-  background: #2746b7;
+.add-account-btn-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+  margin-bottom: 1.5rem;
 }
 
-.accounts-table {
-  box-shadow: 0 8px 32px 0 rgba(53,99,233,0.12), 0 1.5px 6px rgba(0,0,0,0.10);
-  background: #fff;
-  border: 1.5px solid #d3d6de;
-  border-radius: 8px;
-  overflow: hidden;
-  width: auto;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
-  margin-bottom: 40px;
-  border-collapse: separate;
-  border-spacing: 0;
+/* Reduce accounts table width and make it responsive */
+.accounts-table-wrapper {
+  width: 100%;
+  max-width: 900px;
+  min-width: 700px;
+  margin: 0 auto;
 }
 
-.accounts-table th,
-.accounts-table td {
-  white-space: nowrap;
-  text-align: center;
-  padding: 18px 14px;
-  font-size: 1rem;
+/* Align columns in accounts table */
+.accounts-table th:first-child,
+.accounts-table td:first-child {
+  text-align: left;
 }
 
 .accounts-table th.balance-header,
@@ -68,65 +33,78 @@
   text-align: right;
 }
 
-.accounts-table thead tr {
-  background: #e7ebf5;
+.accounts-table th.balance-header {
+  white-space: nowrap;
 }
 
-.accounts-table th {
-  font-weight: 700;
-  color: #334;
-  border-bottom: 2px solid #d4d7e0;
+.accounts-table th.actions-header,
+.accounts-table td.actions-cell {
+  text-align: center;
 }
 
-.accounts-table td {
-  color: #222;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.accounts-table tr:last-child td {
-  border-bottom: none;
-}
-
-.action-btn {
-  background: #3563e9;
+/* Custom color for Add Account button */
+.add-account-btn-wrapper .btn-primary {
+  background: #059669;
   color: #fff;
-  font-weight: 600;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
-  margin-right: 8px;
-  cursor: pointer;
-  transition: background 0.2s;
 }
-.action-btn:hover {
-  background: #2746b7;
+.add-account-btn-wrapper .btn-primary:hover {
+  background: #047857;
 }
 
-@media (max-width: 900px) {
-  .accounts-table {
-    font-size: 0.92rem;
-  }
-  .dashboard-title {
-    font-size: 1.3rem;
-  }
-  .add-account-btn {
-    width: 100%;
-  }
-}
+/* Align actions column header */
 .accounts-table th.actions-header {
   text-align: center;
 }
-/* 
-.dashboard-content {
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px 0 rgba(53,99,233,0.12), 0 1.5px 6px rgba(0,0,0,0.10);
-  padding: 36px 32px 18px 32px;
+
+.accounts-table td.account-name-cell,
+.accounts-table td.account-name-cell a {
+  color: #2563eb;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  outline: none;
+  border: none;
+  transition: color 0.18s, background 0.18s;
+  text-decoration: none !important;
+  border-bottom: 1px solid #e5e7eb !important;
 }
-*/
+
+.accounts-table td.account-name-cell:hover,
+.accounts-table td.account-name-cell:focus,
+.accounts-table td.account-name-cell a:hover,
+.accounts-table td.account-name-cell a:focus {
+  color: #1d4ed8;
+  background: #f0f7ff;
+  text-decoration: none !important;
+  outline: none;
+}
+
+/* Ensure account name is visible in dark mode */
+@media (prefers-color-scheme: dark) {
+  .accounts-table td.account-name-cell {
+    color: #7dd3fc;
+    background: transparent;
+  }
+}
+
+.accounts-table,
+.accounts-table th,
+.accounts-table td {
+  background: none !important;
+}
+
+button,
+.btn-primary,
+.common-action-btn,
+.add-account-btn-wrapper .btn-primary {
+  min-width: 120px;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 24px;
+  font-size: 1rem;
+  border-radius: 8px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

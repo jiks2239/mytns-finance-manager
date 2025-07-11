@@ -1,24 +1,24 @@
-# React + TypeScript + Vite
+# MyTNS - Finance Manager
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This project is a React + TypeScript + Vite application for managing accounts and transactions.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Account dashboard
+- Account summary and transaction list
+- Add, edit, and delete accounts
+- Add and view transactions
+- View recipients
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. Install dependencies: `npm install`
+2. Start the development server: `npm run dev`
+3. Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
+## License
+
+MIT
     ...tseslint.configs.stylisticTypeChecked,
   ],
   languageOptions: {

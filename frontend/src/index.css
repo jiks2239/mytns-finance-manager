@@ -1,3 +1,7 @@
+/* Global box-sizing for all elements */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -11,31 +15,113 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Light theme */
+  --primary-text: #213547;
+  --secondary-text: #2563eb;
+  --primary-bg: #ffffff;
+  --table-header-bg: #e5e7eb;
+  --table-row-hover: #f0f7ff;
+  --border-color: #e5e7eb;
+  --action-btn-bg: #f0fdfa;
+  --action-btn-text: #0f766e;
+  --table-bg: #fff;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+/* Dark theme overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-text: #e5e7eb;
+    --secondary-text: #7dd3fc;
+    --primary-bg: #1a2233;
+    --table-header-bg: #232d3b;
+    --table-row-hover: #22304a;
+    --border-color: #334155;
+    --action-btn-bg: #134e4a;
+    --action-btn-text: #5eead4;
+    --table-bg: #181f2a;
+  }
 }
 
+/* Apply theme variables */
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  color: var(--primary-text);
+  background-color: var(--primary-bg);
 }
 
+/* Table backgrounds and borders */
+.accounts-table,
+.transactions-table {
+  color: var(--primary-text);
+  background: var(--table-bg);
+  border-collapse: collapse;
+  /* Remove border and box-shadow for table */
+  border: none;
+  box-shadow: none;
+}
+
+.accounts-table th,
+.transactions-table th {
+  background: var(--table-header-bg);
+  color: var(--primary-text);
+}
+
+.accounts-table td.account-name-cell {
+  color: var(--secondary-text);
+}
+
+.accounts-table td.account-name-cell:hover,
+.accounts-table td.account-name-cell:focus {
+  color: #1d4ed8;
+  background: var(--table-row-hover);
+}
+
+.accounts-table th,
+.accounts-table td,
+.transactions-table th,
+.transactions-table td {
+  border-bottom: none;
+  border-right: none;
+}
+
+.accounts-table th:last-child,
+.accounts-table td:last-child,
+.transactions-table th:last-child,
+.transactions-table td:last-child {
+  border-right: none;
+}
+
+.accounts-table tr:last-child td,
+.transactions-table tr:last-child td {
+  border-bottom: none;
+}
+
+.actions-cell .action-btn {
+  background: var(--action-btn-bg);
+  color: var(--action-btn-text);
+}
+
+/* Remove duplicate and unwanted button and font rules */
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
 }
 
+select:focus {
+  outline: 2px solid #2746b7;
+  outline-offset: 1px;
+  border-color: #2746b7;
+  background: #f9fafb;
+}
+
+input,
+select {
+  cursor: text;
+}
+
 button {
+  cursor: pointer;
+  touch-action: manipulation;
   border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
@@ -43,8 +129,66 @@ button {
   font-weight: 500;
   font-family: inherit;
   background-color: #1a1a1a;
-  cursor: pointer;
   transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+button,
+.btn-primary,
+.btn-green,
+.btn-blue,
+.account-details-back-btn,
+.common-action-btn {
+  min-width: 120px;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 24px;
+  font-size: 1rem;
+  border-radius: 8px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Only one light theme override block is needed */
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
 }
 button:hover {
   border-color: #646cff;

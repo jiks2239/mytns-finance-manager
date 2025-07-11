@@ -1,4 +1,11 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, IsEmail } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  IsEmail,
+} from 'class-validator';
 import { RecipientType } from '../recipients.entity';
 
 export class CreateRecipientDto {

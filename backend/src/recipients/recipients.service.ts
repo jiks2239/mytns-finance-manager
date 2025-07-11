@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Recipient, RecipientType } from './recipients.entity';
@@ -21,9 +25,13 @@ export class RecipientsService {
   async create(createRecipientDto: CreateRecipientDto): Promise<Recipient> {
     // Optional: Check for duplicate GST
     if (createRecipientDto.gst_number) {
-      const existing = await this.recipientRepository.findOne({ where: { gst_number: createRecipientDto.gst_number } });
+      const existing = await this.recipientRepository.findOne({
+        where: { gst_number: createRecipientDto.gst_number },
+      });
       if (existing) {
-        throw new BadRequestException('Recipient with this GST number already exists.');
+        throw new BadRequestException(
+          'Recipient with this GST number already exists.',
+        );
       }
     }
     const recipient = this.recipientRepository.create(createRecipientDto);
@@ -43,7 +51,10 @@ export class RecipientsService {
   }
 
   /** 4. Update recipient by ID */
-  async update(id: number, updateRecipientDto: UpdateRecipientDto): Promise<Recipient> {
+  async update(
+    id: number,
+    updateRecipientDto: UpdateRecipientDto,
+  ): Promise<Recipient> {
     const recipient = await this.recipientRepository.findOne({ where: { id } });
     if (!recipient) throw new NotFoundException('Recipient not found.');
     Object.assign(recipient, updateRecipientDto);
@@ -83,20 +94,23 @@ export class RecipientsService {
   }
 
   /** 9. Find all recipients under a particular account (via transactions) */
-  async findByAccount(account_id: number): Promise<Recipient[]> {
+  async findByAccount(_account_id: number): Promise<Recipient[]> {
     // Placeholder: This assumes you'll later have a Transaction entity
     // that links accounts to recipients. This query gets unique recipients
     // who have transactions from the given account.
 
     // Example with real transactions:
-    /*
+
     return await this.recipientRepository
       .createQueryBuilder('recipient')
-      .innerJoin('transactions', 'transaction', 'transaction.recipient_id = recipient.id')
-      .where('transaction.account_id = :account_id', { account_id })
+      .innerJoin(
+        'transactions',
+        'transaction',
+        'transaction.recipient_id = recipient.id',
+      )
+      .where('transaction.account_id = :account_id', { _account_id })
       .distinct(true)
       .getMany();
-    */
 
     // For now, returns an empty array until transactions are implemented:
     return [];

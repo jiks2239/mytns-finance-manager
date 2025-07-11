@@ -16,8 +16,8 @@ import { Recipient } from '../recipients/recipients.entity'; // <-- import Recip
       ChequeTransactionDetails,
       OnlineTransferDetails,
       BankChargeDetails,
-      Account,     // <-- add Account here
-      Recipient,   // <-- add Recipient here (already, if using recipient repo)
+      Account, // <-- add Account here
+      Recipient, // <-- add Recipient here (already, if using recipient repo)
     ]),
   ],
   controllers: [TransactionsController],

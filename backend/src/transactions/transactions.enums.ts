@@ -27,5 +27,5 @@ export enum BankChargeType {
   ATM_CHARGE = 'atm_charge',
   CASH_DEPOSIT_CHARGE = 'cash_deposit_charge',
   MAINTENANCE_FEE = 'maintenance_fee',
-  OTHER = 'other'
+  OTHER = 'other',
 }

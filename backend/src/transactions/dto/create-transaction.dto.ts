@@ -1,5 +1,12 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
-import { TransactionType, TransactionStatus, BankChargeType } from '../transactions.enums';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsDateString,
+} from 'class-validator';
+import { TransactionType, TransactionStatus } from '../transactions.enums';
 import { CreateChequeTransactionDetailsDto } from './create-cheque-transaction-details.dto';
 import { CreateOnlineTransferDetailsDto } from './create-online-transfer-details.dto';
 import { CreateBankChargeDetailsDto } from './create-bank-charge-details.dto';
@@ -12,13 +19,19 @@ export class CreateTransactionDto {
   amount: number;
 
   @IsNotEmpty()
-  account_id: number;         // Main account
+  account_id: number; // Main account
 
   @IsOptional()
-  recipient_id?: number;      // Optional (supplier/customer/other)
+  recipient_id?: number; // Optional (supplier/customer/other)
 
   @IsOptional()
-  to_account_id?: number;     // Optional (internal transfer)
+  private _to_account_id?: number; // Optional (internal transfer)
+  public get to_account_id(): number {
+    return this._to_account_id;
+  }
+  public set to_account_id(value: number) {
+    this._to_account_id = value;
+  }
 
   @IsEnum(TransactionStatus)
   status: TransactionStatus;
@@ -26,6 +39,10 @@ export class CreateTransactionDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsDateString()
+  @IsOptional()
+  transaction_date?: string; // <-- ensure this exists
 
   // --- Optional child details ---
   @IsOptional()

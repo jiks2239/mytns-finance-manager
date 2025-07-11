@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Account, AccountType } from './accounts.entity';
@@ -15,13 +19,15 @@ export class AccountsService {
     @InjectRepository(Account)
     private readonly accountRepository: Repository<Account>,
     // If you want to restrict delete, inject transaction repo too:
-     @InjectRepository(Transaction)
-     private readonly transactionRepository: Repository<Transaction>,
+    @InjectRepository(Transaction)
+    private readonly transactionRepository: Repository<Transaction>,
   ) {}
 
   /** 1. Create a new account */
   async create(createAccountDto: CreateAccountDto): Promise<Account> {
-    const existing = await this.accountRepository.findOne({ where: { account_number: createAccountDto.account_number } });
+    const existing = await this.accountRepository.findOne({
+      where: { account_number: createAccountDto.account_number },
+    });
     if (existing) {
       throw new BadRequestException('Account with this number already exists.');
     }
@@ -44,7 +50,10 @@ export class AccountsService {
   }
 
   /** 4. Update account by ID */
-  async update(id: number, updateAccountDto: UpdateAccountDto): Promise<Account> {
+  async update(
+    id: number,
+    updateAccountDto: UpdateAccountDto,
+  ): Promise<Account> {
     const account = await this.accountRepository.findOne({ where: { id } });
     if (!account) {
       throw new NotFoundException('Account not found.');
@@ -71,12 +80,16 @@ export class AccountsService {
   }
 
   /** 6. Find account by account number */
-  async findByAccountNumber(account_number: string): Promise<Account | undefined> {
+  async findByAccountNumber(
+    account_number: string,
+  ): Promise<Account | undefined> {
     return await this.accountRepository.findOne({ where: { account_number } });
   }
 
   async getCurrentBalance(accountId: number): Promise<number> {
-    const account = await this.accountRepository.findOne({ where: { id: accountId } });
+    const account = await this.accountRepository.findOne({
+      where: { id: accountId },
+    });
     if (!account) throw new NotFoundException('Account not found.');
 
     // Fetch all transactions where this account is either main account or "to_account" (for credits)
@@ -91,25 +104,32 @@ export class AccountsService {
     let balance = Number(account.opening_balance);
 
     for (const tx of transactions) {
-      // Skip cancelled/failed/bounced for balance
-      if (
-        ['cancelled', 'failed', 'bounced'].includes(tx.status)
-      ) {
+      // Skip cancelled/failed/bounced/pending for balance
+      if (['cancelled', 'failed', 'bounced', 'pending'].includes(tx.status)) {
         continue;
       }
 
       // Money going out (debit)
       if (
         tx.account.id === accountId &&
-        ['cheque', 'online', 'bank_charge', 'other', 'internal_transfer'].includes(tx.transaction_type)
+        [
+          'cheque',
+          'online',
+          'bank_charge',
+          'other',
+          'internal_transfer',
+        ].includes(tx.transaction_type)
       ) {
         balance -= Number(tx.amount);
       }
 
       // Money coming in (credit)
       if (
-        (tx.to_account && tx.to_account.id === accountId && ['internal_transfer'].includes(tx.transaction_type)) ||
-        (tx.account.id === accountId && ['cash_deposit'].includes(tx.transaction_type))
+        (tx.to_account &&
+          tx.to_account.id === accountId &&
+          ['internal_transfer'].includes(tx.transaction_type)) ||
+        (tx.account.id === accountId &&
+          ['cash_deposit'].includes(tx.transaction_type))
       ) {
         balance += Number(tx.amount);
       }
@@ -120,6 +140,8 @@ export class AccountsService {
 
   /** 8. Get all accounts by type */
   async findByType(accountType: AccountType): Promise<Account[]> {
-    return await this.accountRepository.find({ where: { account_type: accountType } });
+    return await this.accountRepository.find({
+      where: { account_type: accountType },
+    });
   }
 }

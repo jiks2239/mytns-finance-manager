@@ -6,9 +6,7 @@ import { Account } from './accounts.entity'; // or './account.entity'
 import { Transaction } from '../transactions/transactions.entity'; // adjust path as needed
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Account, Transaction])
-  ],
+  imports: [TypeOrmModule.forFeature([Account, Transaction])],
   controllers: [AccountsController],
   providers: [AccountsService],
   exports: [TypeOrmModule], // optional, only if needed elsewhere
