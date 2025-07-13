@@ -7,7 +7,7 @@ interface AddRecipientModalProps {
   isOpen: boolean;
   onClose: () => void;
   name: string;
-  id: number;
+  accountId: number;
   onRecipientAdded: () => void;
 }
 
@@ -15,7 +15,7 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
   isOpen,
   onClose,
   name,
-  id,
+  accountId,
   onRecipientAdded,
 }) => {
   const [recipientName, setRecipientName] = useState(name);
@@ -52,7 +52,7 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
         body: JSON.stringify({
           name: recipientName.trim(),
           type: recipientType,
-          accountId: id,
+          accountId: accountId,
         }),
       });
       if (!res.ok) throw new Error("Failed to add recipient");

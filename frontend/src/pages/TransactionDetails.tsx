@@ -23,11 +23,23 @@ const TRANSACTION_STATUS_LABELS: { [key: string]: string } = {
   cleared: 'Cleared',
 };
 
+type Transaction = {
+  id: string;
+  transaction_type: string;
+  amount: number;
+  status: string;
+  transaction_date?: string;
+  date?: string;
+  created_at?: string;
+  description?: string;
+  // Add other fields as needed
+};
+
 const TransactionDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const [transaction, setTransaction] = useState<any>(null);
+  const [transaction, setTransaction] = useState<Transaction | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -42,7 +54,7 @@ const TransactionDetails: React.FC = () => {
       .catch(() => setTransaction(null));
   }, [id]);
 
-  const formatAmount = (amount: any) =>
+  const formatAmount = (amount: unknown) =>
     amount !== undefined && amount !== null && !isNaN(Number(amount))
       ? '₹' +
         Number(amount).toLocaleString('en-IN', {

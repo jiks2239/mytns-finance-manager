@@ -9,9 +9,6 @@ interface Account {
   account_type: string;
   // ...other fields as needed
 }
-interface AccountWithBalance extends Account {
-  balance: number | null;
-}
 const Home: React.FC = () => {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);

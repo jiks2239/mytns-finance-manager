@@ -19,7 +19,7 @@ interface AccountDashboardCardProps {
 
 const AccountDashboardCard: React.FC<AccountDashboardCardProps> = ({
   id, name, type, balance,
-  onAddRecipient, onViewRecipients, onAddTransaction, onViewTransactions, onViewDetails, onEdit, onDelete
+  onViewRecipients, onAddTransaction, onViewTransactions, onViewDetails, onEdit, onDelete
 }) => {
   const [addRecipientOpen, setAddRecipientOpen] = React.useState(false);
 
@@ -62,7 +62,7 @@ const AccountDashboardCard: React.FC<AccountDashboardCardProps> = ({
       <AddRecipientModal
         isOpen={addRecipientOpen}
         onClose={() => setAddRecipientOpen(false)}
-        accountName={name}
+        name={name}
         accountId={id}
         onRecipientAdded={() => setAddRecipientOpen(false)}
       />

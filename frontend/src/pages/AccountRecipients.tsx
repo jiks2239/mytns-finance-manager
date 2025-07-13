@@ -107,9 +107,10 @@ const AccountRecipients: React.FC = () => {
       </div>
       <AddRecipientModal
         isOpen={addRecipientOpen}
-        accountId={id!}
+        accountId={Number(id)}
+        name=""
         onClose={() => setAddRecipientOpen(false)}
-        onSuccess={fetchRecipients}
+        onRecipientAdded={fetchRecipients}
       />
       {editRecipient && (
         <EditRecipientModal
