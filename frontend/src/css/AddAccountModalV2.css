@@ -1,0 +1,50 @@
+/* Remove modal overlay, form, header, title, close, and actions styles now in CommonModal.css */
+/* Retain only unique styles for AddAccountModalV2 if any */
+
+.add-account-modalv2-overlay {
+  /* Unique styles for AddAccountModalV2 overlay if any */
+}
+
+.add-account-modalv2-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.primary-btn {
+  background: #3563e9;
+  color: #fff;
+  border: none;
+  border-radius: 1.2rem;
+  padding: 0.7rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.primary-btn:disabled {
+  background: #b3c6f7;
+  cursor: not-allowed;
+}
+
+.primary-btn:hover:not(:disabled) {
+  background: #2746b7;
+}
+
+.secondary-btn {
+  background: #f3f4f6;
+  color: #2d3a5a;
+  border: 1px solid #d1d5db;
+  border-radius: 1.2rem;
+  padding: 0.7rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.secondary-btn:hover {
+  background: #e5e7eb;
+}

@@ -31,6 +31,59 @@
   overflow-y: auto;
 }
 
+.add-account-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  margin-bottom: 18px;
+  min-height: 36px;
+}
+
+.add-account-modal-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #222;
+  margin-left: 0;
+  margin-right: 0;
+  flex: 1;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.add-account-modal-close {
+  position: relative;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 8px;
+  margin-right: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, color 0.18s, box-shadow 0.2s;
+}
+
+.add-account-modal-close.small-close-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 1.1rem;
+  min-width: 28px;
+  min-height: 28px;
+  max-width: 28px;
+  max-height: 28px;
+  line-height: 1;
+}
+
+.add-account-modal-close.small-close-btn:hover {
+  background: #f2f3fa;
+  color: #e01111;
+  box-shadow: 0 2px 8px 0 rgba(60,72,110,0.12);
+}
+
 .add-account-modal-form h3 {
   display: none;
 }

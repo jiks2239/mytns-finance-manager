@@ -1,43 +1,45 @@
 import React, { useState } from "react";
-import "../css/AddAccountModal.css";
+import "../css/CommonModal.css";
 
 const API_BASE = "http://localhost:3000";
 
 interface AddRecipientModalProps {
   isOpen: boolean;
-  accountId: string | number;
   onClose: () => void;
-  onSuccess?: () => void;
+  name: string;
+  id: number;
+  onRecipientAdded: () => void;
 }
 
 const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
   isOpen,
-  accountId,
   onClose,
-  onSuccess,
+  name,
+  id,
+  onRecipientAdded,
 }) => {
-  const [name, setName] = useState("");
-  const [recipient_type, setRecipientType] = useState("customer"); // <-- use recipient_type
+  const [recipientName, setRecipientName] = useState(name);
+  const [recipientType, setRecipientType] = useState("customer");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   React.useEffect(() => {
     if (isOpen) {
-      setName("");
+      setRecipientName(name);
       setRecipientType("customer");
       setError("");
     }
-  }, [isOpen]);
+  }, [isOpen, name]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    if (!recipientName.trim()) {
       setError("Recipient name is required.");
       return;
     }
-    if (!recipient_type) {
+    if (!recipientType) {
       setError("Recipient type is required.");
       return;
     }
@@ -48,28 +50,32 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
-          recipient_type, // <-- send recipient_type
-          account_id: accountId,
+          name: recipientName.trim(),
+          type: recipientType,
+          accountId: id,
         }),
       });
       if (!res.ok) throw new Error("Failed to add recipient");
-      if (onSuccess) onSuccess();
+      onRecipientAdded();
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Failed to add recipient");
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "message" in err) {
+        setError((err as { message: string }).message || "Failed to add recipient");
+      } else {
+        setError("Failed to add recipient");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="add-account-modal-overlay" role="dialog" aria-modal="true">
-      <form className="add-account-modal-form" onSubmit={handleSubmit} style={{ minWidth: 320 }}>
-        <div className="add-account-modal-header">
-          <h2>Add Recipient</h2>
+    <div className="common-modal-overlay" role="dialog" aria-modal="true">
+      <form className="common-modal-form" onSubmit={handleSubmit}>
+        <div className="common-modal-header">
+          <span className="common-modal-title">Add Recipient</span>
           <button
-            className="add-account-modal-close"
+            className="common-modal-close"
             type="button"
             aria-label="Close"
             onClick={onClose}
@@ -80,8 +86,8 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
           <input
             id="recipient-name"
             type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
+            value={recipientName}
+            onChange={e => setRecipientName(e.target.value)}
             autoFocus
             required
           />
@@ -90,10 +96,11 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
           <label htmlFor="recipient-type">Recipient Type<span aria-hidden="true">*</span></label>
           <select
             id="recipient-type"
-            value={recipient_type}
+            value={recipientType}
             onChange={e => setRecipientType(e.target.value)}
             required
           >
+            <option value="">-- Select --</option>
             <option value="customer">Customer</option>
             <option value="supplier">Supplier</option>
             <option value="utility">Utility</option>
@@ -103,9 +110,9 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
           </select>
         </div>
         {error && <div className="add-account-modal-error">{error}</div>}
-        <div className="add-account-modal-actions">
-          <button type="button" onClick={onClose} disabled={loading}>Cancel</button>
-          <button type="submit" disabled={loading}>{loading ? "Saving..." : "Add Recipient"}</button>
+        <div className="common-modal-actions">
+          <button type="submit" className="primary-btn" disabled={loading}>{loading ? "Saving..." : "Add Recipient"}</button>
+          <button type="button" className="secondary-btn" onClick={onClose} disabled={loading}>Cancel</button>
         </div>
       </form>
     </div>

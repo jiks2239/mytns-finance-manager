@@ -66,7 +66,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
       if (!res.ok) throw new Error('Failed to add account');
       await onAccountAdded();
       onClose();
-    } catch (err) {
+    } catch {
       alert('Failed to add account');
     }
   };
@@ -75,9 +75,9 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
     <div className="add-account-modal-overlay" role="dialog" aria-modal="true">
       <div className="add-account-modal-form">
         <div className="add-account-modal-header">
-          <h2>Add Account</h2>
+          <span className="add-account-modal-title">Add Account</span>
           <button
-            className="add-account-modal-close"
+            className="add-account-modal-close small-close-btn"
             type="button"
             aria-label="Close"
             onClick={onClose}
@@ -117,7 +117,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
             <select
               {...register('account_type', { required: 'Account Type is required' })}
             >
-              <option value="">Select Account Type</option>
+              <option value="">-- Select --</option>
               <option value="current">Current Account</option>
               <option value="savings">Savings Account</option>
               <option value="cash">Cash</option>

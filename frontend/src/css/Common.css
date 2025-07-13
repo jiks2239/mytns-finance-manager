@@ -270,3 +270,7 @@ select:focus {
     font-size: 0.875rem;
   }
 }
+
+.form-group label {
+  text-align: left !important;
+}

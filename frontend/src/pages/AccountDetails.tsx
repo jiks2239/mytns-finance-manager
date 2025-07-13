@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import AddTransactionModal from '../components/AddTransactionModal';
+import EditTransactionModal from '../components/EditTransactionModal';
 import '../css/AccountDetails.css';
 
 const API_BASE = 'http://localhost:3000';
@@ -51,6 +52,7 @@ const AccountDetails: React.FC = () => {
   const [balance, setBalance] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [addTxOpen, setAddTxOpen] = useState(false);
+  const [editTx, setEditTx] = useState<Transaction | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -115,6 +117,14 @@ const AccountDetails: React.FC = () => {
       ? '-'
       : Number(val).toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }) + '/-';
 
+  // Add delete handler
+  const handleDelete = async (txId: string) => {
+    if (!window.confirm('Are you sure you want to delete this transaction?')) return;
+    await fetch(`${API_BASE}/transactions/${txId}`, { method: 'DELETE' });
+    // Refresh transactions after delete
+    setTransactions(transactions => transactions.filter(tx => tx.id !== txId));
+  };
+
   return (
     <div className="account-details-bg">
       <div className="account-details-card account-summary-card single-row-summary with-bottom-space account-summary-margin">
@@ -161,6 +171,7 @@ const AccountDetails: React.FC = () => {
                 <th>Date</th>
                 <th>Status</th>
                 <th>Description</th>
+                <th className="actions-header">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -197,6 +208,11 @@ const AccountDetails: React.FC = () => {
                   </td>
                   <td>{tx.status || '-'}</td>
                   <td>{tx.description || '-'}</td>
+                  <td className="actions-cell">
+                    <Link className="common-action-btn view" to={`/transactions/${tx.id}`}>View</Link>
+                    <button className="common-action-btn edit" onClick={() => setEditTx(tx)}>Edit</button>
+                    <button className="common-action-btn delete" onClick={() => handleDelete(tx.id)}>Delete</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -230,6 +246,20 @@ const AccountDetails: React.FC = () => {
         onClose={() => setAddTxOpen(false)}
         onSuccess={() => setAddTxOpen(false)}
       />
+      {editTx && (
+        <EditTransactionModal
+          isOpen={!!editTx}
+          transaction={{
+            ...editTx,
+            status: editTx.status ?? ''
+          }}
+          onClose={() => setEditTx(null)}
+          onSuccess={() => {
+            setEditTx(null);
+            // Optionally, refresh transactions here if needed
+          }}
+        />
+      )}
     </div>
   );
 };

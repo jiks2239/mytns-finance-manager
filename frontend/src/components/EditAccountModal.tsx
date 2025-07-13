@@ -1,10 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
-import '../css/AddAccountModal.css';
+import '../css/AddAccountModalV2.css';
+
+interface Account {
+  id: string | number;
+  account_name: string;
+  account_number: string;
+  account_type: string;
+  bank_name: string;
+  opening_balance: number | string;
+  description?: string;
+}
 
 interface EditAccountModalProps {
   isOpen: boolean;
-  account: any;
+  account: Account | null;
   onClose: () => void;
   onAccountUpdated: () => void;
 }
@@ -87,89 +97,70 @@ const EditAccountModal: React.FC<EditAccountModalProps> = ({
       if (!res.ok) throw new Error('Failed to update account');
       onAccountUpdated();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Error updating account');
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'message' in err) {
+        setError((err as { message: string }).message || 'Error updating account');
+      } else {
+        setError('Error updating account');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="add-account-modal-overlay">
+    <div className="add-account-modalv2-overlay" role="dialog" aria-modal="true">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="add-account-modal-form"
+        className="add-account-modalv2-form common-modal-form"
       >
-        <h3>Edit Account</h3>
-        <label>
-          Account Name:
-          <input
-            type="text"
-            {...register('account_name', { required: 'Account Name is required' })}
-          />
-          {errors.account_name && <span className="add-account-modal-error">{errors.account_name.message}</span>}
-        </label>
-        <label>
-          Account Number:
-          <input
-            type="text"
-            {...register('account_number', {
-              required: 'Account Number is required',
-              validate: value =>
-                /^[0-9\s]+$/.test(value) || 'Account Number must contain only numbers',
-            })}
-          />
-          {errors.account_number && <span className="add-account-modal-error">{errors.account_number.message}</span>}
-        </label>
-        <label>
-          Account Type:
-          <select
-            {...register('account_type', { required: 'Account Type is required' })}
-          >
-            <option value="" disabled>
-              -- Select Account Type --
-            </option>
-            {ACCOUNT_TYPES.map(type => (
-              <option key={type.value} value={type.value}>{type.label}</option>
+        <div className="add-account-modalv2-header common-modal-header">
+          <span className="add-account-modalv2-title common-modal-title">Edit Account</span>
+          <button
+            className="add-account-modal-close small-close-btn"
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+          >&#10005;</button>
+        </div>
+        <div className="form-group">
+          <label htmlFor="account_name">Account Name<span aria-hidden="true">*</span></label>
+          <input id="account_name" {...register('account_name', { required: true })} />
+          {errors.account_name && <span className="error">Account Name is required.</span>}
+        </div>
+        <div className="form-group">
+          <label htmlFor="account_number">Account Number<span aria-hidden="true">*</span></label>
+          <input id="account_number" {...register('account_number', { required: true })} />
+          {errors.account_number && <span className="error">Account Number is required.</span>}
+        </div>
+        <div className="form-group">
+          <label htmlFor="account_type">Account Type<span aria-hidden="true">*</span></label>
+          <select id="account_type" {...register('account_type', { required: true })}>
+            <option value="">-- Select --</option>
+            {ACCOUNT_TYPES.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          {errors.account_type && <span className="add-account-modal-error">{errors.account_type.message}</span>}
-        </label>
-        <label>
-          Bank Name:
-          <input
-            type="text"
-            {...register('bank_name', {
-              required: 'Bank Name is required',
-              validate: value =>
-                /^[A-Za-z\s]+$/.test(value) || 'Bank Name must contain only letters',
-            })}
-          />
-          {errors.bank_name && <span className="add-account-modal-error">{errors.bank_name.message}</span>}
-        </label>
-        <label>
-          Opening Balance:
-          <input
-            type="number"
-            step="0.01"
-            {...register('opening_balance', {
-              required: 'Opening Balance is required',
-              valueAsNumber: true,
-            })}
-          />
-          {errors.opening_balance && <span className="add-account-modal-error">{errors.opening_balance.message}</span>}
-        </label>
-        <label>
-          Description (Optional):
-          <input
-            type="text"
-            {...register('description')}
-          />
-        </label>
-        {error && <div className="add-account-modal-error">{error}</div>}
-        <div className="add-account-modal-actions">
-          <button type="button" onClick={onClose} disabled={loading}>Cancel</button>
-          <button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Update Account'}</button>
+          {errors.account_type && <span className="error">Account Type is required.</span>}
+        </div>
+        <div className="form-group">
+          <label htmlFor="bank_name">Bank Name<span aria-hidden="true">*</span></label>
+          <input id="bank_name" {...register('bank_name', { required: true })} />
+          {errors.bank_name && <span className="error">Bank Name is required.</span>}
+        </div>
+        <div className="form-group">
+          <label htmlFor="opening_balance">Opening Balance<span aria-hidden="true">*</span></label>
+          <input id="opening_balance" type="number" step="0.01" {...register('opening_balance', { required: true, valueAsNumber: true })} />
+          {errors.opening_balance && <span className="error">Opening Balance is required.</span>}
+        </div>
+        <div className="form-group">
+          <label htmlFor="description">Description</label>
+          <input id="description" {...register('description')} />
+        </div>
+        {error && <div className="add-account-modalv2-error">{error}</div>}
+        <div className="add-account-modalv2-actions common-modal-actions">
+          <button type="button" className="secondary-btn" onClick={onClose} disabled={loading}>Cancel</button>
+          <button type="submit" className="primary-btn" disabled={loading}>{loading ? 'Saving...' : 'Update Account'}</button>
         </div>
       </form>
     </div>

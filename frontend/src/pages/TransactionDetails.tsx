@@ -56,7 +56,7 @@ const TransactionDetails: React.FC = () => {
     // If no id param, do not redirect, just show not found
     return (
       <div className="account-details-bg">
-        <div style={{ color: '#e01111', fontSize: 20 }}>Transaction not found.</div>
+        <div className="common-text-error common-fs-20">Transaction not found.</div>
       </div>
     );
   }
@@ -64,7 +64,7 @@ const TransactionDetails: React.FC = () => {
   if (!transaction) {
     return (
       <div className="account-details-bg">
-        <div style={{ color: '#333', fontSize: 20 }}>Loading transaction details...</div>
+        <div className="common-text-secondary common-fs-20">Loading transaction details...</div>
       </div>
     );
   }

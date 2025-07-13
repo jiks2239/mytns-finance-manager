@@ -1,21 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import AddTransactionModal from '../components/AddTransactionModal';
 import EditTransactionModal from '../components/EditTransactionModal'; // <-- import (create if not exists)
 import '../css/TransactionsList.css';
 
-interface Transaction {
-  id: number;
-  transaction_type: string;
-  amount: number;
-  transaction_date?: string;
-  date?: string;
-  created_at?: string;
-  description?: string;
-  status?: string;
-}
+// Import the shared Transaction type
+import type { Transaction } from '../types/transaction';
 
 const API_BASE = 'http://localhost:3000';
 
@@ -41,7 +33,6 @@ const TRANSACTION_STATUS_LABELS: { [key: string]: string } = {
 const TransactionsList: React.FC = () => {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
   const [modalOpen, setModalOpen] = useState(false);
   const [accountName, setAccountName] = useState<string>('');
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
@@ -104,7 +95,7 @@ const TransactionsList: React.FC = () => {
     // Optionally, you can also use: window.location.reload();
   };
 
-  const formatAmount = (amount: any) =>
+  const formatAmount = (amount: unknown) =>
     amount !== undefined && amount !== null && !isNaN(Number(amount))
       ? '₹' +
         Number(amount).toLocaleString('en-IN', {
@@ -191,8 +182,18 @@ const TransactionsList: React.FC = () => {
                 >
                   View
                 </Link>
-                <button className="common-action-btn edit" onClick={() => handleEdit(tx)}>Edit</button>
-                <button className="common-action-btn delete" onClick={() => handleDelete(tx.id)}>Delete</button>
+                <button
+                  className="common-action-btn edit"
+                  onClick={() => handleEdit(tx)}
+                >
+                  Edit
+                </button>
+                <button
+                  className="common-action-btn delete"
+                  onClick={() => handleDelete(tx.id)}
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           ))}
