@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import '../css/AccountDetails.css';
+// ...existing code...
 
 const API_BASE = 'http://localhost:3000';
 

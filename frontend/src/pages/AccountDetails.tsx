@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import {
+  Box, Flex, Heading, Text, Table, Thead, Tbody, Tr, Th, Td, Button, IconButton, useColorModeValue, Stack, Tooltip, Stat, StatLabel, StatNumber, StatGroup, Badge, Avatar
+} from '@chakra-ui/react';
+import { ArrowBackIcon, AddIcon, ViewIcon, EditIcon, DeleteIcon, InfoOutlineIcon } from '@chakra-ui/icons';
+import { FaUniversity, FaWallet } from 'react-icons/fa';
 import AddTransactionModal from '../components/AddTransactionModal';
 import EditTransactionModal from '../components/EditTransactionModal';
-import '../css/AccountDetails.css';
 
 const API_BASE = 'http://localhost:3000';
 
@@ -96,19 +100,29 @@ const AccountDetails: React.FC = () => {
     fetchTransactions();
   }, [id, addTxOpen]);
 
+  // Color mode values
+  const bgPage = useColorModeValue('linear(to-br, blue.50, white, blue.100)', 'gray.900');
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const cardBorder = useColorModeValue('blue.100', 'gray.700');
+  const subHeadingColor = useColorModeValue('blue.800', 'blue.100');
+  const statBg = useColorModeValue('blue.50', 'gray.700');
+  const statBorder = useColorModeValue('blue.100', 'gray.600');
+  const badgeBg = useColorModeValue('blue.100', 'blue.900');
+  const badgeColor = useColorModeValue('blue.800', 'blue.100');
+
   if (!id) {
     return (
-      <div className="account-details-bg">
-        <div className="account-loading-text">Invalid account.</div>
-      </div>
+      <Flex minH="60vh" align="center" justify="center" bg={bgPage}> 
+        <Text fontSize="xl" color="red.500">Invalid account.</Text>
+      </Flex>
     );
   }
 
   if (!account) {
     return (
-      <div className="account-details-bg">
-        <div className="account-loading-text">Loading account details...</div>
-      </div>
+      <Flex minH="60vh" align="center" justify="center" bg={bgPage}> 
+        <Text fontSize="xl" color="gray.500">Loading account details...</Text>
+      </Flex>
     );
   }
 
@@ -126,120 +140,114 @@ const AccountDetails: React.FC = () => {
   };
 
   return (
-    <div className="account-details-bg">
-      <div className="account-details-card account-summary-card single-row-summary with-bottom-space account-summary-margin">
-        <h2 className="account-summary-title">Account Summary</h2>
-        <ul className="account-summary-list-row">
-          <li>
-            <span className="account-summary-label">Name:</span>
-            <span className="account-summary-value">{account.account_name}</span>
-          </li>
-          <li>
-            <span className="account-summary-label">Number:</span>
-            <span className="account-summary-value">{account.account_number}</span>
-          </li>
-          <li>
-            <span className="account-summary-label">Type:</span>
-            <span className="account-summary-value">{ACCOUNT_TYPE_LABELS[account.account_type] || account.account_type}</span>
-          </li>
-          <li>
-            <span className="account-summary-label">Bank:</span>
-            <span className="account-summary-value">{account.bank_name || '-'}</span>
-          </li>
-          <li>
-            <span className="account-summary-label">Opening Balance:</span>
-            <span className="account-summary-value">{formatCurrency(account.opening_balance)}</span>
-          </li>
-          <li>
-            <span className="account-summary-label">Current Balance:</span>
-            <span className="account-summary-value">{formatCurrency(balance)}</span>
-          </li>
-        </ul>
-        <div className="account-summary-bottom-space" />
-      </div>
-      <div className="account-details-card transactions-list-card">
-        <h3 className="transactions-title">Transactions</h3>
+    <Box minH="100vh" py={10} px={2} bgGradient={bgPage} transition="background 0.3s">
+      <Box maxW="5xl" mx="auto" bg={cardBg} borderRadius="2xl" boxShadow="2xl" p={{ base: 4, md: 10 }} borderWidth={1} borderColor={cardBorder}>
+        {/* Header Card */}
+        <Flex align="center" gap={6} mb={8} direction={{ base: 'column', md: 'row' }} bgGradient="linear(to-r, blue.400, blue.600)" borderRadius="xl" p={6} boxShadow="lg">
+          <Avatar size="xl" name={account.account_name} bg="white" color="blue.700" icon={<FaWallet fontSize="2rem" />} />
+          <Box flex={1} color="white">
+            <Heading as="h2" size="lg" mb={1} fontWeight="extrabold" letterSpacing="tight">
+              {account.account_name}
+            </Heading>
+            <Stack direction="row" align="center" spacing={4} mb={2}>
+              <Badge bg={badgeBg} color={badgeColor} px={3} py={1} borderRadius="md" fontWeight="bold" fontSize="md">
+                {ACCOUNT_TYPE_LABELS[account.account_type] || account.account_type}
+              </Badge>
+              {account.bank_name && (
+                <Stack direction="row" align="center" spacing={1}>
+                  <Box as={FaUniversity} color="whiteAlpha.800" />
+                  <Text fontWeight="medium" fontSize="md">{account.bank_name}</Text>
+                </Stack>
+              )}
+            </Stack>
+            <Text fontSize="md" opacity={0.85}>Account No: <b>{account.account_number}</b></Text>
+          </Box>
+        </Flex>
+        {/* Stat Cards */}
+        <StatGroup bg={statBg} borderRadius="lg" borderWidth={1} borderColor={statBorder} p={4} mb={8} boxShadow="md" flexWrap="wrap">
+          <Stat minW="180px">
+            <StatLabel color="gray.500">Opening Balance</StatLabel>
+            <StatNumber color="blue.700" fontWeight="bold">{formatCurrency(account.opening_balance)}</StatNumber>
+          </Stat>
+          <Stat minW="180px">
+            <StatLabel color="gray.500">Current Balance</StatLabel>
+            <StatNumber color="green.600" fontWeight="bold">{formatCurrency(balance)}</StatNumber>
+          </Stat>
+        </StatGroup>
+        {/* Transactions Table */}
+        <Flex align="center" justify="space-between" mb={2} gap={2} flexWrap="wrap">
+          <Heading as="h3" size="md" color={subHeadingColor} fontWeight="bold">Transactions</Heading>
+          <Button leftIcon={<AddIcon />} colorScheme="green" variant="solid" onClick={() => setAddTxOpen(true)}>
+            Add Transaction
+          </Button>
+        </Flex>
         {transactions.length === 0 ? (
-          <div className="transactions-empty-text">No transactions found.</div>
+          <Text color="gray.500" mb={6} textAlign="center">No transactions found.</Text>
         ) : (
-          <table className="transactions-table">
-            <thead>
-              <tr>
-                <th>Created</th>
-                <th>Type</th>
-                <th>Amount</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Description</th>
-                <th className="actions-header">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((tx) => (
-                <tr key={tx.id}>
-                  <td>
-                    {tx.created_at
-                      ? new Date(tx.created_at).toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })
-                      : '-'}
-                  </td>
-                  <td>{TRANSACTION_TYPE_LABELS[tx.transaction_type] || tx.transaction_type}</td>
-                  <td>{formatCurrency(tx.amount)}</td>
-                  <td>
-                    {tx.transaction_date
-                      ? new Date(tx.transaction_date).toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })
-                      : tx.date
-                        ? new Date(tx.date).toLocaleDateString('en-US', {
-                          weekday: 'short',
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })
-                        : '-'}
-                  </td>
-                  <td>{tx.status || '-'}</td>
-                  <td>{tx.description || '-'}</td>
-                  <td className="actions-cell">
-                    <Link className="common-action-btn view" to={`/transactions/${tx.id}`}>View</Link>
-                    <button className="common-action-btn edit" onClick={() => setEditTx(tx)}>Edit</button>
-                    <button className="common-action-btn delete" onClick={() => handleDelete(tx.id)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Box overflowX="auto" mb={6} borderRadius="lg" borderWidth={1} borderColor={statBorder} boxShadow="sm">
+            <Table variant="simple" size="md" bg={cardBg}>
+              <Thead position="sticky" top={0} zIndex={1} bg={statBg}>
+                <Tr>
+                  <Th>Created</Th>
+                  <Th>Type</Th>
+                  <Th>Amount</Th>
+                  <Th>Date</Th>
+                  <Th>Status</Th>
+                  <Th>Description</Th>
+                  <Th textAlign="center">Actions</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {transactions.map((tx) => {
+                  // eslint-disable-next-line react-hooks/rules-of-hooks
+                  const trHoverBg = useColorModeValue('blue.50', 'gray.700');
+                  return (
+                    <Tr key={tx.id} _hover={{ bg: trHoverBg }}>
+                      <Td>
+                        {tx.created_at
+                          ? new Date(tx.created_at).toLocaleDateString('en-US', {
+                              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+                            })
+                          : '-'}
+                      </Td>
+                      <Td>{TRANSACTION_TYPE_LABELS[tx.transaction_type] || tx.transaction_type}</Td>
+                      <Td color={tx.amount < 0 ? 'red.500' : 'green.600'} fontWeight="bold">{formatCurrency(tx.amount)}</Td>
+                      <Td>
+                        {tx.transaction_date
+                          ? new Date(tx.transaction_date).toLocaleDateString('en-US', {
+                              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+                            })
+                          : tx.date
+                          ? new Date(tx.date).toLocaleDateString('en-US', {
+                              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+                            })
+                          : '-'}
+                      </Td>
+                      <Td>{tx.status || '-'}</Td>
+                      <Td>{tx.description || '-'}</Td>
+                      <Td textAlign="center">
+                        <Stack direction="row" spacing={1} justify="center">
+                          <Tooltip label="View"><span><IconButton as={Link} to={`/transactions/${tx.id}`} aria-label="View" icon={<ViewIcon />} size="sm" colorScheme="blue" variant="ghost" /></span></Tooltip>
+                          <Tooltip label="Edit"><span><IconButton aria-label="Edit" icon={<EditIcon />} size="sm" colorScheme="yellow" variant="ghost" onClick={() => setEditTx(tx)} /></span></Tooltip>
+                          <Tooltip label="Delete"><span><IconButton aria-label="Delete" icon={<DeleteIcon />} size="sm" colorScheme="red" variant="ghost" onClick={() => handleDelete(tx.id)} /></span></Tooltip>
+                        </Stack>
+                      </Td>
+                    </Tr>
+                  );
+                })}
+              </Tbody>
+            </Table>
+          </Box>
         )}
-      </div>
-      <div className="account-details-actions-row">
-        <Link
-          to={`/accounts/${id}/recipients`}
-          className="btn-primary btn-blue account-actions-link"
-        >
-          View Recipients
-        </Link>
-        <button
-          className="btn-primary btn-green"
-          onClick={() => setAddTxOpen(true)}
-        >
-          Add Transaction
-        </button>
-        <button
-          className="account-details-back-btn btn-gray"
-          onClick={() => navigate('/')}
-          type="button"
-        >
-          Back to Accounts
-        </button>
-      </div>
+        <Flex gap={3} justify="flex-end" mt={6} flexWrap="wrap">
+          <Button as={Link} to={`/accounts/${id}/recipients`} colorScheme="blue" variant="outline" leftIcon={<InfoOutlineIcon />}>
+            View Recipients
+          </Button>
+          <Button leftIcon={<ArrowBackIcon />} colorScheme="gray" variant="solid" onClick={() => navigate('/')}> 
+            Back to Accounts
+          </Button>
+        </Flex>
+      </Box>
       <AddTransactionModal
         isOpen={addTxOpen}
         accountId={id!}
@@ -260,7 +268,7 @@ const AccountDetails: React.FC = () => {
           }}
         />
       )}
-    </div>
+    </Box>
   );
 };
 

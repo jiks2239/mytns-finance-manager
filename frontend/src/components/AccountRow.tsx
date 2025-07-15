@@ -17,6 +17,7 @@ interface AccountRowProps {
   onEdit: (account: Account) => void;
   onDelete: (id: number) => void;
   onAccountNameClick?: (id: number) => void;
+  onViewRecipients?: (id: number) => void;
 }
 
 const AccountRow: React.FC<AccountRowProps> = ({
@@ -25,6 +26,7 @@ const AccountRow: React.FC<AccountRowProps> = ({
   onEdit,
   onDelete,
   onAccountNameClick,
+  onViewRecipients,
 }) => (
   <tr>
     <td
@@ -45,6 +47,7 @@ const AccountRow: React.FC<AccountRowProps> = ({
     <td className="actions-cell">
       <button className="common-action-btn edit" onClick={() => onEdit(account)}>Edit</button>
       <button className="common-action-btn delete" onClick={() => onDelete(account.id)}>Delete</button>
+      <button className="common-action-btn view" onClick={() => onViewRecipients?.(account.id)}>View Recipients</button>
     </td>
   </tr>
 );

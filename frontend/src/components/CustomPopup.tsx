@@ -1,5 +1,5 @@
 import React from "react";
-import "../css/CustomPopup.css";
+// ...existing code...
 
 interface CustomPopupProps {
   open: boolean;

@@ -1,14 +1,12 @@
 import React from 'react';
-import { FaUserPlus, FaUsers, FaPlusCircle, FaList, FaInfoCircle, FaEdit, FaTrash } from 'react-icons/fa';
-import './AccountDashboardCard.css';
-import AddRecipientModal from './AddRecipientModal';
+import { Box, Flex, Text, IconButton, useColorModeValue, Tooltip } from '@chakra-ui/react';
+import { FaUsers, FaPlusCircle, FaList, FaInfoCircle, FaEdit, FaTrash } from 'react-icons/fa';
 
 interface AccountDashboardCardProps {
   id: number;
   name: string;
   type: string;
   balance: number | null;
-  onAddRecipient: () => void;
   onViewRecipients: () => void;
   onAddTransaction: () => void;
   onViewTransactions: () => void;
@@ -21,52 +19,58 @@ const AccountDashboardCard: React.FC<AccountDashboardCardProps> = ({
   id, name, type, balance,
   onViewRecipients, onAddTransaction, onViewTransactions, onViewDetails, onEdit, onDelete
 }) => {
-  const [addRecipientOpen, setAddRecipientOpen] = React.useState(false);
+
 
   return (
-    <div className="account-dashboard-card">
-      <div className="adc-header">
-        <div>
-          <div className="adc-title">{name}</div>
-          <div className="adc-type">{type.replace(/^(.)/, c => c.toUpperCase())}</div>
-        </div>
-        <div className="adc-balance">
+    <Box
+      bg={useColorModeValue('#f8fafc', 'gray.800')}
+      borderRadius="1.2rem"
+      boxShadow="md"
+      p={{ base: 4, md: 6 }}
+      minW="260px"
+      minH="120px"
+      display="flex"
+      flexDirection="column"
+      alignItems="stretch"
+      justifyContent="center"
+      fontSize="1.1rem"
+      position="relative"
+      mb={2}
+    >
+      <Flex align="flex-start" justify="space-between" mb={4}>
+        <Box>
+          <Text fontWeight="bold" color={useColorModeValue('#2d3a5a', 'blue.200')} fontSize="1.2rem" mb={1}>
+            {name}
+          </Text>
+          <Text color={useColorModeValue('#64748b', 'gray.400')} fontSize="1rem" fontWeight={500}>
+            {type.replace(/^(.)/, c => c.toUpperCase())}
+          </Text>
+        </Box>
+        <Box
+          fontSize="1.1rem"
+          fontWeight={600}
+          color="#1e7d34"
+          bg="#e6f4ea"
+          borderRadius="0.7rem"
+          px={4}
+          py={2}
+          minW="120px"
+          textAlign="right"
+        >
           {balance !== null && balance !== undefined
             ? `₹${balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
             : 'Loading...'}
-        </div>
-      </div>
-      <div className="adc-actions">
-        <button data-label="Add Recipient" title="Add Recipient" onClick={() => setAddRecipientOpen(true)}>
-          <FaUserPlus />
-        </button>
-        <button data-label="View Recipients" title="View Recipients" onClick={onViewRecipients}>
-          <FaUsers />
-        </button>
-        <button data-label="Add Transaction" title="Add Transaction" onClick={onAddTransaction}>
-          <FaPlusCircle />
-        </button>
-        <button data-label="View Transactions" title="View Transactions" onClick={onViewTransactions}>
-          <FaList />
-        </button>
-        <button data-label="View Details" title="View Details" onClick={onViewDetails}>
-          <FaInfoCircle />
-        </button>
-        <button data-label="Edit Account" title="Edit Account" onClick={onEdit}>
-          <FaEdit />
-        </button>
-        <button data-label="Delete Account" title="Delete Account" className="adc-delete" onClick={onDelete}>
-          <FaTrash />
-        </button>
-      </div>
-      <AddRecipientModal
-        isOpen={addRecipientOpen}
-        onClose={() => setAddRecipientOpen(false)}
-        name={name}
-        accountId={id}
-        onRecipientAdded={() => setAddRecipientOpen(false)}
-      />
-    </div>
+        </Box>
+      </Flex>
+      <Flex gap={3} flexWrap="nowrap" justify="center" mt={2} overflowX="auto">
+        <Tooltip label="View Recipients"><span><IconButton aria-label="View Recipients" icon={<FaUsers />} onClick={onViewRecipients} size="lg" colorScheme="blue" variant="ghost" /></span></Tooltip>
+        <Tooltip label="Add Transaction"><span><IconButton aria-label="Add Transaction" icon={<FaPlusCircle />} onClick={onAddTransaction} size="lg" colorScheme="green" variant="ghost" /></span></Tooltip>
+        <Tooltip label="View Transactions"><span><IconButton aria-label="View Transactions" icon={<FaList />} onClick={onViewTransactions} size="lg" colorScheme="purple" variant="ghost" /></span></Tooltip>
+        <Tooltip label="View Details"><span><IconButton aria-label="View Details" icon={<FaInfoCircle />} onClick={onViewDetails} size="lg" colorScheme="gray" variant="ghost" /></span></Tooltip>
+        <Tooltip label="Edit Account"><span><IconButton aria-label="Edit Account" icon={<FaEdit />} onClick={onEdit} size="lg" colorScheme="yellow" variant="ghost" /></span></Tooltip>
+        <Tooltip label="Delete Account"><span><IconButton aria-label="Delete Account" icon={<FaTrash />} onClick={onDelete} size="lg" colorScheme="red" variant="ghost" /></span></Tooltip>
+      </Flex>
+    </Box>
   );
 };
 

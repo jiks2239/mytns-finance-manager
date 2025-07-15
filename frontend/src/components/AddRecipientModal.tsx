@@ -1,5 +1,20 @@
 import React, { useState } from "react";
-import "../css/CommonModal.css";
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  Button,
+  FormControl,
+  FormLabel,
+  Input,
+  Select,
+  FormErrorMessage,
+  Stack
+} from '@chakra-ui/react';
 
 const API_BASE = "http://localhost:3000";
 
@@ -14,22 +29,24 @@ interface AddRecipientModalProps {
 const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
   isOpen,
   onClose,
-  name,
   accountId,
   onRecipientAdded,
 }) => {
-  const [recipientName, setRecipientName] = useState(name);
-  const [recipientType, setRecipientType] = useState("customer");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientType, setRecipientType] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   React.useEffect(() => {
     if (isOpen) {
-      setRecipientName(name);
-      setRecipientType("customer");
+      setRecipientName("");
+      setRecipientType("");
       setError("");
     }
-  }, [isOpen, name]);
+  }, [isOpen]);
+
+  // Validate accountId at the top level
+  const isAccountIdValid = accountId && !isNaN(Number(accountId)) && Number(accountId) > 0;
 
   if (!isOpen) return null;
 
@@ -43,6 +60,10 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
       setError("Recipient type is required.");
       return;
     }
+    if (!accountId || isNaN(Number(accountId)) || Number(accountId) <= 0) {
+      setError("Invalid account. Please refresh and try again from the correct account page.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -51,8 +72,8 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: recipientName.trim(),
-          type: recipientType,
-          accountId: accountId,
+          recipient_type: recipientType,
+          account_id: Number(accountId),
         }),
       });
       if (!res.ok) throw new Error("Failed to add recipient");
@@ -70,52 +91,62 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
   };
 
   return (
-    <div className="common-modal-overlay" role="dialog" aria-modal="true">
-      <form className="common-modal-form" onSubmit={handleSubmit}>
-        <div className="common-modal-header">
-          <span className="common-modal-title">Add Recipient</span>
-          <button
-            className="common-modal-close"
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-          >&#10005;</button>
-        </div>
-        <div className="form-group">
-          <label htmlFor="recipient-name">Recipient Name<span aria-hidden="true">*</span></label>
-          <input
-            id="recipient-name"
-            type="text"
-            value={recipientName}
-            onChange={e => setRecipientName(e.target.value)}
-            autoFocus
-            required
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="recipient-type">Recipient Type<span aria-hidden="true">*</span></label>
-          <select
-            id="recipient-type"
-            value={recipientType}
-            onChange={e => setRecipientType(e.target.value)}
-            required
-          >
-            <option value="">-- Select --</option>
-            <option value="customer">Customer</option>
-            <option value="supplier">Supplier</option>
-            <option value="utility">Utility</option>
-            <option value="employee">Employee</option>
-            <option value="bank">Bank</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        {error && <div className="add-account-modal-error">{error}</div>}
-        <div className="common-modal-actions">
-          <button type="submit" className="primary-btn" disabled={loading}>{loading ? "Saving..." : "Add Recipient"}</button>
-          <button type="button" className="secondary-btn" onClick={onClose} disabled={loading}>Cancel</button>
-        </div>
-      </form>
-    </div>
+    <Modal isOpen={isOpen} onClose={onClose} isCentered>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Add Recipient</ModalHeader>
+        <ModalCloseButton />
+        <form onSubmit={handleSubmit}>
+          <ModalBody>
+            <Stack spacing={4}>
+              {/* Debug info for accountId */}
+              <div style={{ fontSize: '0.9em', color: isAccountIdValid ? 'green' : 'red', marginBottom: 8 }}>
+                <b>Debug:</b> accountId = {String(accountId)} {isAccountIdValid ? '' : '(Invalid!)'}
+              </div>
+              <FormControl isRequired isInvalid={!!error && error.includes('name')}>
+                <FormLabel htmlFor="recipient-name">Recipient Name</FormLabel>
+                <Input
+                  id="recipient-name"
+                  type="text"
+                  value={recipientName}
+                  onChange={e => setRecipientName(e.target.value)}
+                  autoFocus
+                  disabled={loading}
+                />
+                {error && error.includes('name') && <FormErrorMessage>{error}</FormErrorMessage>}
+              </FormControl>
+              <FormControl isRequired isInvalid={!!error && error.includes('type')}>
+                <FormLabel htmlFor="recipient-type">Recipient Type</FormLabel>
+                <Select
+                  id="recipient-type"
+                  value={recipientType}
+                  onChange={e => setRecipientType(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="">-- Select --</option>
+                  <option value="customer">Customer</option>
+                  <option value="supplier">Supplier</option>
+                  <option value="utility">Utility</option>
+                  <option value="employee">Employee</option>
+                  <option value="bank">Bank</option>
+                  <option value="other">Other</option>
+                </Select>
+                {error && error.includes('type') && <FormErrorMessage>{error}</FormErrorMessage>}
+              </FormControl>
+              {error && !error.includes('name') && !error.includes('type') && (
+                <FormErrorMessage>{error}</FormErrorMessage>
+              )}
+            </Stack>
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="blue" mr={3} type="submit" isLoading={loading} loadingText="Saving...">
+              Add Recipient
+            </Button>
+            <Button onClick={onClose} disabled={loading} variant="ghost">Cancel</Button>
+          </ModalFooter>
+        </form>
+      </ModalContent>
+    </Modal>
   );
 };
 

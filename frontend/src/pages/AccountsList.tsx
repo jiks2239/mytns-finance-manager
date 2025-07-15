@@ -5,9 +5,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import AccountRow from '../components/AccountRow';
 import type { Account } from '../components/AccountRow';
 import AddAccountModal from '../components/AddAccountModal';
-import EditAccountModal from '../components/EditAccountModal';
 import CustomPopup from '../components/CustomPopup';
-import '../css/AccountsList.css';
+// ...existing code...
 
 const API_BASE = 'http://localhost:3000';
 
@@ -15,8 +14,8 @@ type AccountWithBalance = Account & { balance: number };
 
 const AccountsList: React.FC = () => {
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [, setEditModalOpen] = useState(false);
+  const [, setEditingAccount] = useState<Account | null>(null);
   const [deleteAccountId, setDeleteAccountId] = useState<number | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
   const [errorPopup, setErrorPopup] = useState<{ open: boolean; message: string }>({ open: false, message: "" });
@@ -61,7 +60,7 @@ const AccountsList: React.FC = () => {
       const res = await axios.get<Account>(`${API_BASE}/accounts/${account.id}`);
       setEditingAccount(res.data);
       setEditModalOpen(true);
-    } catch (err) {
+    } catch {
       setErrorPopup({ open: true, message: 'Failed to fetch account details for editing.' });
     }
   };
@@ -77,8 +76,12 @@ const AccountsList: React.FC = () => {
       setDeleteAccountId(null);
       setPopupOpen(false);
       await refetch();
-    } catch (err: any) {
-      setErrorPopup({ open: true, message: err?.message || 'Failed to delete account' });
+    } catch (err: unknown) {
+      const errorMessage =
+        typeof err === 'object' && err !== null && 'message' in err
+          ? (err as { message: string }).message
+          : 'Failed to delete account';
+      setErrorPopup({ open: true, message: errorMessage });
       setPopupOpen(false);
     }
   };
@@ -86,43 +89,38 @@ const AccountsList: React.FC = () => {
   if (isLoading) return <div>Loading accounts...</div>;
 
   return (
-    <div className="container">
-      <h2 className="dashboard-title">Accounts Dashboard</h2>
-      {editingAccount && (
-        <EditAccountModal
-          isOpen={editModalOpen}
-          account={editingAccount}
-          onClose={() => setEditModalOpen(false)}
-          onAccountUpdated={() => refetch()}
-        />
-      )}
+    <div className="min-h-screen bg-gray-50 py-10">
+      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-blue-700">Accounts Dashboard</h2>
+          <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition" onClick={() => setAddModalOpen(true)}>+ Add Account</button>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <table className="min-w-full bg-white">
+            <thead>
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Balance</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {accounts?.map(acc => (
+                <AccountRow
+                  key={acc.id}
+                  account={acc}
+                  balance={acc.balance}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onAccountNameClick={(id: number) => navigate(`/accounts/${id}`)}
+                  onViewRecipients={(id: number) => navigate(`/accounts/${id}/recipients`)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
       <AddAccountModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} onAccountAdded={async () => { await refetch(); }} />
-      <div className="accounts-table-wrapper common-table-shadow">
-        <table className="accounts-table">
-          <thead>
-            <tr>
-              <th>Account Name</th>
-              <th className='balance-header'>Current Balance</th>
-              <th className="actions-header">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {accounts?.map(acc => (
-              <AccountRow
-                key={acc.id}
-                account={acc}
-                balance={acc.balance}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onAccountNameClick={(id: number) => navigate(`/accounts/${id}`)}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="add-account-btn-wrapper">
-        <button className="btn-primary" onClick={() => setAddModalOpen(true)}>+ Add Account</button>
-      </div>
       <CustomPopup
         open={popupOpen}
         message="Are you sure you want to delete this account?"

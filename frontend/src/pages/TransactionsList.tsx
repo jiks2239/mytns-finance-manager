@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import AddTransactionModal from '../components/AddTransactionModal';
 import EditTransactionModal from '../components/EditTransactionModal'; // <-- import (create if not exists)
-import '../css/TransactionsList.css';
+// ...existing code...
 
 // Import the shared Transaction type
 import type { Transaction } from '../types/transaction';

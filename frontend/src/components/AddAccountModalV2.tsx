@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import '../css/CommonModal.css';
+// ...existing code...
 import { addAccount } from '../api/accounts';
 
 interface AddAccountModalProps {

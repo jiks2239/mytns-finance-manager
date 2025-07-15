@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import AddAccountModal from '../components/AddAccountModalV2';
+import { useNavigate} from 'react-router-dom';
+import { Box, Button, Heading, Text, SimpleGrid, IconButton } from '@chakra-ui/react';
+import { AddIcon } from '@chakra-ui/icons';
+import AddAccountModal from '../components/AddAccountModal';
 import AccountDashboardCard from '../components/AccountDashboardCard';
-import '../css/Home.css';
 
 interface Account {
   id: number;
@@ -13,6 +15,7 @@ const Home: React.FC = () => {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [balances, setBalances] = useState<Record<number, number | null>>({});
+  const navigate = useNavigate();
 
   const fetchAccounts = async () => {
     const res = await fetch('http://localhost:3000/accounts');
@@ -44,17 +47,28 @@ const Home: React.FC = () => {
     fetchBalances();
   }, [accounts]);
 
+  // Chakra v3+ (Panda) does not export useColorModeValue. Use hardcoded values or implement your own color mode logic if needed.
+  const bgGradient = 'linear(to-br, #bfdbfe, #fff, #93c5fd)';
+  const cardBg = '#fff';
+  const cardBorder = '#dbeafe';
+  const headingColor = '#1e40af';
+  const textColor = '#475569';
+
   return (
-    <div className="home-root">
-      <div className="home-content">
-        <h1 className="home-title">Welcome to Your Finance Manager</h1>
-        <p className="home-subtitle">Start by adding your first account to manage your finances effortlessly.</p>
+    <Box minH="100vh" py={12} px={2} bgGradient={bgGradient} transition="background 0.3s">
+      <Box maxW="4xl" mx="auto" bg={cardBg} borderRadius="3xl" boxShadow="2xl" p={10} borderWidth={1} borderColor={cardBorder}>
+        <Heading as="h1" size="2xl" color={headingColor} mb={1} textAlign="center" fontWeight="extrabold" letterSpacing="tight" whiteSpace="nowrap">
+          Welcome to MyTNS - Finance Manager
+        </Heading>
+        <Text fontSize="xl" color={textColor} mb={10} textAlign="center" fontWeight="bold">
+          Shri Lakshmi Bakery & Sweet Mart
+        </Text>
         {accounts.length === 0 ? (
-          <button className="home-add-btn" onClick={() => setAddModalOpen(true)} aria-label="Add Account">
+          <Button w="full" py={6} borderRadius="xl" colorScheme="blue" fontWeight="bold" fontSize="xl" boxShadow="lg" mb={2} onClick={() => setAddModalOpen(true)}>
             + Add Account
-          </button>
+          </Button>
         ) : (
-          <div className="home-accounts-list">
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={8}>
             {accounts.map(acc => (
               <AccountDashboardCard
                 key={acc.id}
@@ -62,27 +76,33 @@ const Home: React.FC = () => {
                 name={acc.account_name}
                 type={acc.account_type}
                 balance={balances[acc.id]}
-                onAddRecipient={() => alert('Add Recipient for ' + acc.account_name)}
-                onViewRecipients={() => alert('View Recipients for ' + acc.account_name)}
+                onViewRecipients={() => navigate(`/accounts/${acc.id}/recipients`)}
                 onAddTransaction={() => alert('Add Transaction for ' + acc.account_name)}
                 onViewTransactions={() => alert('View Transactions for ' + acc.account_name)}
-                onViewDetails={() => alert('View Details for ' + acc.account_name)}
+                onViewDetails={() => navigate(`/accounts/${acc.id}`)}
                 onEdit={() => alert('Edit Account ' + acc.account_name)}
                 onDelete={() => alert('Delete Account ' + acc.account_name)}
               />
             ))}
-            <button
-              className="home-add-btn fab"
-              onClick={() => setAddModalOpen(true)}
-              aria-label="Add Account"
-            >
-              +
-            </button>
-          </div>
+          </SimpleGrid>
         )}
-      </div>
+        <IconButton
+          icon={<AddIcon boxSize="2rem" />}
+          colorScheme="blue"
+          borderRadius="full"
+          size="lg"
+          position="fixed"
+          bottom={8}
+          right={8}
+          boxShadow="2xl"
+          aria-label="Add Account"
+          onClick={() => setAddModalOpen(true)}
+          zIndex={50}
+        />
+      </Box>
       <AddAccountModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} onAccountAdded={fetchAccounts} />
-    </div>
+      {/* Route for recipients list is defined in App.tsx, not here */}
+    </Box>
   );
 };
 
