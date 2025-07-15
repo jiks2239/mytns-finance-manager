@@ -26,6 +26,9 @@ export class Recipient {
   @Column({ type: 'enum', enum: RecipientType })
   recipient_type: RecipientType;
 
+  @Column({ type: 'int' })
+  account_id: number;
+
   @Column({ length: 30, nullable: true })
   bank_account_no?: string;
 

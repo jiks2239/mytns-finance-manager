@@ -1,3 +1,4 @@
+// Removed misplaced duplicate of findByAccountId
 import {
   Injectable,
   NotFoundException,
@@ -113,6 +114,12 @@ export class RecipientsService {
       .getMany();
 
     // For now, returns an empty array until transactions are implemented:
+
     return [];
+  }
+
+  /** 9a. Find all recipients by direct account_id field (one-to-many) */
+  async findByAccountId(account_id: number): Promise<Recipient[]> {
+    return await this.recipientRepository.find({ where: { account_id } });
   }
 }

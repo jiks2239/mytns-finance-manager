@@ -5,6 +5,8 @@ import {
   IsString,
   MaxLength,
   IsEmail,
+  IsInt,
+  Min,
 } from 'class-validator';
 import { RecipientType } from '../recipients.entity';
 
@@ -21,6 +23,10 @@ export class CreateRecipientDto {
   @IsOptional()
   @MaxLength(30)
   bank_account_no?: string;
+
+  @IsInt()
+  @Min(1, { message: 'account_id must be a positive integer.' })
+  account_id: number;
 
   @IsString()
   @IsOptional()

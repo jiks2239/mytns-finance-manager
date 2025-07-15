@@ -30,7 +30,11 @@ export class RecipientsController {
   async findAll(
     @Query('type') type?: RecipientType,
     @Query('name') name?: string,
+    @Query('account_id') account_id?: number,
   ) {
+    if (account_id) {
+      return await this.recipientsService.findByAccountId(Number(account_id));
+    }
     if (type) {
       return await this.recipientsService.findByType(type);
     }
