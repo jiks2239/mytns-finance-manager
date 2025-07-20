@@ -4,9 +4,13 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { Account } from '../accounts/accounts.entity';
 
 export enum RecipientType {
+  ACCOUNT = 'account',
   SUPPLIER = 'supplier',
   CUSTOMER = 'customer',
   UTILITY = 'utility',
@@ -26,8 +30,13 @@ export class Recipient {
   @Column({ type: 'enum', enum: RecipientType })
   recipient_type: RecipientType;
 
-  @Column({ type: 'int' })
-  account_id: number;
+  @Column({ type: 'int', nullable: true })
+  account_id?: number;
+
+  // Relationship to Account - only for ACCOUNT type recipients
+  @ManyToOne(() => Account, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'account_id' })
+  account?: Account;
 
   @Column({ length: 30, nullable: true })
   bank_account_no?: string;

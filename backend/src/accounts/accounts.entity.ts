@@ -4,14 +4,16 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToOne,
+  AfterInsert,
+  AfterUpdate,
+  AfterRemove,
 } from 'typeorm';
 
 export enum AccountType {
   CURRENT = 'current',
   SAVINGS = 'savings',
-  CREDIT_CARD = 'credit_card',
   CASH = 'cash',
-  OTHER = 'other',
 }
 
 @Entity('accounts')
@@ -22,8 +24,8 @@ export class Account {
   @Column({ length: 100 })
   account_name: string;
 
-  @Column({ length: 30, unique: true })
-  account_number: string;
+  @Column({ length: 30, unique: true, nullable: true })
+  account_number?: string;
 
   @Column({ length: 100, nullable: true })
   bank_name?: string;
@@ -42,4 +44,24 @@ export class Account {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  // Relationship to auto-generated recipient
+  @OneToOne('Recipient', 'account')
+  recipient?: any;
+
+  // Lifecycle hooks for automatic recipient management
+  @AfterInsert()
+  async createRecipient() {
+    // This will be handled by the AccountsService to avoid circular dependencies
+  }
+
+  @AfterUpdate()
+  async updateRecipient() {
+    // This will be handled by the AccountsService to avoid circular dependencies
+  }
+
+  @AfterRemove()
+  async removeRecipient() {
+    // This will be handled by the AccountsService to avoid circular dependencies
+  }
 }

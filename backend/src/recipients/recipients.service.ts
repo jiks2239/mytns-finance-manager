@@ -118,8 +118,54 @@ export class RecipientsService {
     return [];
   }
 
-  /** 9a. Find all recipients by direct account_id field (one-to-many) */
+  /** 9a. Find all recipients by direct account_id field (one-to-many)
+   * For account A recipient list view, this returns only:
+   * - All regular recipients (customer, supplier, etc.) created for account A
+   * - Excludes all ACCOUNT-type recipients (including self) from view
+   */
   async findByAccountId(account_id: number): Promise<Recipient[]> {
-    return await this.recipientRepository.find({ where: { account_id } });
+    return await this.recipientRepository
+      .createQueryBuilder('recipient')
+      .where('recipient.account_id = :account_id', { account_id })
+      .andWhere('recipient.recipient_type != :accountType', {
+        accountType: RecipientType.ACCOUNT,
+      })
+      .getMany();
+  }
+
+  /** 9b. Find all recipients for transaction creation (includes self-account)
+   * For account A transaction creation, this returns:
+   * - All regular recipients (customer, supplier, etc.) created for account A
+   * - Account A itself as a recipient (for self-transactions like bank charges)
+   * - Excludes other ACCOUNT-type recipients (other accounts) as they are only for internal transfers
+   */
+  async findRecipientsForTransactions(
+    account_id: number,
+  ): Promise<Recipient[]> {
+    return await this.recipientRepository
+      .createQueryBuilder('recipient')
+      .where(
+        '(recipient.account_id = :account_id AND recipient.recipient_type != :accountType) OR ' +
+          '(recipient.recipient_type = :accountType AND recipient.account_id = :account_id)',
+        {
+          account_id,
+          accountType: RecipientType.ACCOUNT,
+        },
+      )
+      .getMany();
+  }
+
+  /** 11. Find ACCOUNT-type recipients for internal transfers (excludes source account) */
+  async findAccountRecipientsForTransfer(
+    sourceAccountId: number,
+  ): Promise<Recipient[]> {
+    return await this.recipientRepository
+      .createQueryBuilder('recipient')
+      .where('recipient.recipient_type = :type', {
+        type: RecipientType.ACCOUNT,
+      })
+      .andWhere('recipient.account_id != :sourceAccountId', { sourceAccountId })
+      .andWhere('recipient.account_id IS NOT NULL')
+      .getMany();
   }
 }

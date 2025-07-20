@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,6 +11,8 @@ import { Account, AccountType } from './accounts.entity';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { Transaction } from 'src/transactions/transactions.entity';
+import { RecipientsService } from '../recipients/recipients.service';
+import { RecipientType } from '../recipients/recipients.entity';
 
 // If you have a Transaction entity, import it for relation checks
 // import { Transaction } from '../transactions/transaction.entity';
@@ -21,18 +25,32 @@ export class AccountsService {
     // If you want to restrict delete, inject transaction repo too:
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
+    // Inject RecipientsService for automatic recipient management
+    @Inject(forwardRef(() => RecipientsService))
+    private readonly recipientsService: RecipientsService,
   ) {}
 
   /** 1. Create a new account */
   async create(createAccountDto: CreateAccountDto): Promise<Account> {
-    const existing = await this.accountRepository.findOne({
-      where: { account_number: createAccountDto.account_number },
-    });
-    if (existing) {
-      throw new BadRequestException('Account with this number already exists.');
+    // Only check for duplicate account numbers if an account number is provided
+    if (createAccountDto.account_number) {
+      const existing = await this.accountRepository.findOne({
+        where: { account_number: createAccountDto.account_number },
+      });
+      if (existing) {
+        throw new BadRequestException(
+          'Account with this number already exists.',
+        );
+      }
     }
+
     const account = this.accountRepository.create(createAccountDto);
-    return await this.accountRepository.save(account);
+    const savedAccount = await this.accountRepository.save(account);
+
+    // Automatically create corresponding recipient
+    await this.createAccountRecipient(savedAccount);
+
+    return savedAccount;
   }
 
   /** 2. List all accounts */
@@ -58,8 +76,14 @@ export class AccountsService {
     if (!account) {
       throw new NotFoundException('Account not found.');
     }
+
     Object.assign(account, updateAccountDto);
-    return await this.accountRepository.save(account);
+    const updatedAccount = await this.accountRepository.save(account);
+
+    // Update corresponding recipient if it exists
+    await this.updateAccountRecipient(updatedAccount);
+
+    return updatedAccount;
   }
 
   /** 5. Delete account by ID (restrict if linked transactions) */
@@ -74,6 +98,9 @@ export class AccountsService {
     // if (linkedTxCount > 0) {
     //   throw new BadRequestException('Cannot delete account with linked transactions.');
     // }
+
+    // Delete corresponding recipient first
+    await this.deleteAccountRecipient(account);
 
     // For now, just delete (remove above comments later)
     await this.accountRepository.delete(id);
@@ -143,5 +170,68 @@ export class AccountsService {
     return await this.accountRepository.find({
       where: { account_type: accountType },
     });
+  }
+
+  // Helper methods for automatic recipient management
+
+  /** Create automatic recipient for account */
+  private async createAccountRecipient(account: Account): Promise<void> {
+    try {
+      const recipientName = account.account_name;
+      const recipientData = {
+        name: recipientName,
+        recipient_type: RecipientType.ACCOUNT,
+        account_id: account.id,
+        bank_account_no: account.account_number || null,
+        notes: `Auto-generated recipient for account: ${account.account_name}`,
+      };
+
+      await this.recipientsService.create(recipientData);
+    } catch (error) {
+      console.error('Failed to create account recipient:', error);
+      // Don't throw error to avoid failing account creation
+    }
+  }
+
+  /** Update automatic recipient when account is updated */
+  private async updateAccountRecipient(account: Account): Promise<void> {
+    try {
+      const recipients = await this.recipientsService.findByAccountId(
+        account.id,
+      );
+      const accountRecipient = recipients.find(
+        (r) => r.recipient_type === RecipientType.ACCOUNT,
+      );
+
+      if (accountRecipient) {
+        const updateData = {
+          name: account.account_name,
+          bank_account_no: account.account_number || null,
+          notes: `Auto-generated recipient for account: ${account.account_name}`,
+        };
+        await this.recipientsService.update(accountRecipient.id, updateData);
+      }
+    } catch (error) {
+      console.error('Failed to update account recipient:', error);
+      // Don't throw error to avoid failing account update
+    }
+  }
+
+  /** Delete automatic recipient when account is deleted */
+  private async deleteAccountRecipient(account: Account): Promise<void> {
+    try {
+      const recipients = await this.recipientsService.findByAccountId(
+        account.id,
+      );
+      const accountRecipient = recipients.find(
+        (r) => r.recipient_type === RecipientType.ACCOUNT,
+      );
+      if (accountRecipient) {
+        await this.recipientsService.remove(accountRecipient.id);
+      }
+    } catch (error) {
+      console.error('Failed to delete account recipient:', error);
+      // Don't throw error to avoid failing account deletion
+    }
   }
 }

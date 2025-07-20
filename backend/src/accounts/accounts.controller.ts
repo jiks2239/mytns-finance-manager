@@ -31,13 +31,15 @@ export class AccountsController {
     if (type) {
       return await this.accountsService.findByType(type);
     }
-    // Ensure all accounts return both id and account_name and account_type
+    // Return all accounts with all necessary fields
     const accounts = await this.accountsService.findAll();
     return accounts.map((acc) => ({
       id: acc.id,
       account_name: acc.account_name,
       account_type: acc.account_type,
-      // Optionally include other fields as needed
+      bank_name: acc.bank_name,
+      account_number: acc.account_number,
+      opening_balance: acc.opening_balance,
     }));
   }
 

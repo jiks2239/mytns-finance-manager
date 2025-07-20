@@ -7,6 +7,7 @@ import {
   IsEmail,
   IsInt,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { RecipientType } from '../recipients.entity';
 
@@ -19,14 +20,16 @@ export class CreateRecipientDto {
   @IsEnum(RecipientType)
   recipient_type: RecipientType;
 
+  // account_id is optional - only required for ACCOUNT type recipients
+  @ValidateIf((o) => o.recipient_type === RecipientType.ACCOUNT)
+  @IsInt()
+  @Min(1, { message: 'account_id must be a positive integer.' })
+  account_id?: number;
+
   @IsString()
   @IsOptional()
   @MaxLength(30)
   bank_account_no?: string;
-
-  @IsInt()
-  @Min(1, { message: 'account_id must be a positive integer.' })
-  account_id: number;
 
   @IsString()
   @IsOptional()

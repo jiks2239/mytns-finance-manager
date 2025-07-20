@@ -85,4 +85,24 @@ export class RecipientsController {
   async findByAccount(@Param('account_id', ParseIntPipe) account_id: number) {
     return await this.recipientsService.findByAccount(account_id);
   }
+
+  /** 9. Get ACCOUNT-type recipients for internal transfers (excludes source account) */
+  @Get('for-transfer/:source_account_id')
+  async findAccountRecipientsForTransfer(
+    @Param('source_account_id', ParseIntPipe) sourceAccountId: number,
+  ) {
+    return await this.recipientsService.findAccountRecipientsForTransfer(
+      sourceAccountId,
+    );
+  }
+
+  /** 10. Get recipients for transaction creation (includes self-account for bank charges) */
+  @Get('for-transactions/:account_id')
+  async findRecipientsForTransactions(
+    @Param('account_id', ParseIntPipe) account_id: number,
+  ) {
+    return await this.recipientsService.findRecipientsForTransactions(
+      account_id,
+    );
+  }
 }

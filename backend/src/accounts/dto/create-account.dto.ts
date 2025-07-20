@@ -5,6 +5,7 @@ import {
   IsString,
   IsNumber,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 import { AccountType } from '../accounts.entity';
 
@@ -14,13 +15,25 @@ export class CreateAccountDto {
   @MaxLength(100)
   account_name: string;
 
+  // Account number is required for current and savings accounts
+  @ValidateIf(
+    (o) =>
+      o.account_type === AccountType.CURRENT ||
+      o.account_type === AccountType.SAVINGS,
+  )
   @IsString()
   @IsNotEmpty()
   @MaxLength(30)
-  account_number: string;
+  account_number?: string;
 
+  // Bank name is required for current and savings accounts
+  @ValidateIf(
+    (o) =>
+      o.account_type === AccountType.CURRENT ||
+      o.account_type === AccountType.SAVINGS,
+  )
   @IsString()
-  @IsOptional()
+  @IsNotEmpty()
   @MaxLength(100)
   bank_name?: string;
 
