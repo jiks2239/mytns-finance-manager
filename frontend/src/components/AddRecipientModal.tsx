@@ -45,9 +45,6 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
     }
   }, [isOpen]);
 
-  // Validate accountId at the top level
-  const isAccountIdValid = accountId && !isNaN(Number(accountId)) && Number(accountId) > 0;
-
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -99,10 +96,6 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
         <form onSubmit={handleSubmit}>
           <ModalBody>
             <Stack spacing={4}>
-              {/* Debug info for accountId */}
-              <div style={{ fontSize: '0.9em', color: isAccountIdValid ? 'green' : 'red', marginBottom: 8 }}>
-                <b>Debug:</b> accountId = {String(accountId)} {isAccountIdValid ? '' : '(Invalid!)'}
-              </div>
               <FormControl isRequired isInvalid={!!error && error.includes('name')}>
                 <FormLabel htmlFor="recipient-name">Recipient Name</FormLabel>
                 <Input

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   ModalOverlay,
@@ -13,9 +13,11 @@ import {
   Input,
   Select,
   FormErrorMessage,
-  useColorModeValue,
-  Textarea} from '@chakra-ui/react';
-import { useForm } from 'react-hook-form';
+  VStack,
+  Alert,
+  AlertIcon,
+} from '@chakra-ui/react';
+import { addAccount } from '../api/accounts';
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -23,154 +25,184 @@ interface AddAccountModalProps {
   onAccountAdded: () => Promise<void>;
 }
 
-type FormValues = {
-  account_name: string;
-  account_number: string;
-  account_type: string;
-  bank_name: string;
-  opening_balance: number;
-  description: string;
-};
+type AccountType = 'current' | 'savings' | 'cash';
 
-const AddAccountModal: React.FC<AddAccountModalProps> = ({
-  isOpen,
-  onClose,
-  onAccountAdded,
-}) => {
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose, onAccountAdded }) => {
+  const [accountName, setAccountName] = useState('');
+  const [accountType, setAccountType] = useState<AccountType | ''>('');
+  const [bankName, setBankName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [openingBalance, setOpeningBalance] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<FormValues>({
-    defaultValues: {
-      account_name: '',
-      account_number: '',
-      account_type: '',
-      bank_name: '',
-      opening_balance: 0,
-      description: '',
-    }
-  });
+  const resetForm = () => {
+    setAccountName('');
+    setAccountType('');
+    setBankName('');
+    setAccountNumber('');
+    setOpeningBalance('');
+    setErrors({});
+    setSubmitError(null);
+  };
 
   React.useEffect(() => {
-    if (isOpen) {
-      reset();
+    if (isOpen) resetForm();
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  // Validation helpers
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!accountName.trim()) newErrors.accountName = 'Account Name is required';
+    if (!accountType) newErrors.accountType = 'Account Type is required';
+    
+    // Bank name and account number are only required for bank accounts (not cash)
+    if (accountType === 'current' || accountType === 'savings') {
+      if (!bankName.trim()) newErrors.bankName = 'Bank Name is required';
+      else if (/\d/.test(bankName)) newErrors.bankName = 'Bank Name must not contain numbers';
+      if (!accountNumber.trim()) newErrors.accountNumber = 'Bank Account Number is required';
+      else if (/[^0-9 ]/.test(accountNumber)) newErrors.accountNumber = 'Only numbers and spaces allowed';
     }
-  }, [isOpen, reset]);
+    
+    // Opening balance is required for all account types
+    if (!openingBalance.trim()) newErrors.openingBalance = 'Opening Balance is required';
+    else if (isNaN(Number(openingBalance))) newErrors.openingBalance = 'Must be a number';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-
-
-  const onSubmit = async (data: FormValues) => {
-    // Send data to backend here
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+    setSubmitting(true);
+    setSubmitError(null);
     try {
-      const res = await fetch('http://localhost:3000/accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error('Failed to add account');
+      interface AccountPayload {
+        account_name: string;
+        account_type: AccountType | '';
+        bank_name?: string;
+        account_number?: string;
+        opening_balance?: number;
+      }
+
+      const payload: AccountPayload = {
+        account_name: accountName,
+        account_type: accountType,
+      };
+      
+      if (accountType === 'current' || accountType === 'savings') {
+        payload.bank_name = bankName;
+        payload.account_number = accountNumber;
+        payload.opening_balance = Number(openingBalance);
+      } else if (accountType === 'cash') {
+        payload.opening_balance = Number(openingBalance);
+        // Cash accounts don't have bank_name or account_number
+      }
+      await addAccount(payload);
       await onAccountAdded();
       onClose();
-    } catch {
-      alert('Failed to add account');
+    } catch (err: unknown) {
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to add account'
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} isCentered size="md">
+    <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <ModalOverlay />
-      <ModalContent borderRadius="xl" boxShadow="2xl" bg={useColorModeValue('white', 'gray.800')}>
-        <ModalHeader fontWeight="bold">Add Account</ModalHeader>
+      <ModalContent>
+        <ModalHeader>Add Account</ModalHeader>
         <ModalCloseButton />
-        <form onSubmit={handleSubmit(onSubmit)} autoComplete="off">
-          <ModalBody pb={6}>
-            <FormControl isInvalid={!!errors.account_name} mb={4} isRequired>
-              <FormLabel>Account Name</FormLabel>
-              <Input
-                type="text"
-                {...register('account_name', { required: 'Account Name is required' })}
-                autoFocus
-                autoComplete="off"
-              />
-              <FormErrorMessage>{errors.account_name && errors.account_name.message}</FormErrorMessage>
-            </FormControl>
-            <FormControl isInvalid={!!errors.account_number} mb={4} isRequired>
-              <FormLabel>Account Number</FormLabel>
-              <Input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9\s]+"
-                {...register('account_number', {
-                  required: 'Account Number is required',
-                  validate: value =>
-                    /^[0-9\s]+$/.test(value) || 'Account Number must contain only numbers',
-                })}
-              />
-              <FormErrorMessage>{errors.account_number && errors.account_number.message}</FormErrorMessage>
-            </FormControl>
-            <FormControl isInvalid={!!errors.account_type} mb={4} isRequired>
-              <FormLabel>Account Type</FormLabel>
-              <Select
-                placeholder="-- Select --"
-                {...register('account_type', { required: 'Account Type is required' })}
-              >
-                <option value="current">Current Account</option>
-                <option value="savings">Savings Account</option>
-                <option value="cash">Cash</option>
-                <option value="credit_card">Credit Card</option>
-                <option value="loan">Loan</option>
-                <option value="other">Other</option>
-              </Select>
-              <FormErrorMessage>{errors.account_type && errors.account_type.message}</FormErrorMessage>
-            </FormControl>
-            <FormControl isInvalid={!!errors.bank_name} mb={4} isRequired>
-              <FormLabel>Bank Name</FormLabel>
-              <Input
-                type="text"
-                {...register('bank_name', {
-                  required: 'Bank Name is required',
-                  validate: value =>
-                    /^[A-Za-z\s]+$/.test(value) || 'Bank Name must contain only letters',
-                })}
-              />
-              <FormErrorMessage>{errors.bank_name && errors.bank_name.message}</FormErrorMessage>
-            </FormControl>
-            <FormControl isInvalid={!!errors.opening_balance} mb={4} isRequired>
-              <FormLabel>Opening Balance</FormLabel>
-              <Input
-                type="number"
-                {...register('opening_balance', {
-                  required: 'Opening Balance is required',
-                  valueAsNumber: true,
-                })}
-              />
-              <FormErrorMessage>{errors.opening_balance && errors.opening_balance.message}</FormErrorMessage>
-            </FormControl>
-            <FormControl mb={2}>
-              <FormLabel>Description (Optional)</FormLabel>
-              <Textarea
-                {...register('description')}
-                resize="vertical"
-                minH="40px"
-                maxH="120px"
-              />
-            </FormControl>
+        <form onSubmit={handleSubmit}>
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.accountName}>
+                <FormLabel>Account Name</FormLabel>
+                <Input
+                  value={accountName}
+                  onChange={e => setAccountName(e.target.value)}
+                  autoFocus
+                />
+                <FormErrorMessage>{errors.accountName}</FormErrorMessage>
+              </FormControl>
+
+              <FormControl isRequired isInvalid={!!errors.accountType}>
+                <FormLabel>Account Type</FormLabel>
+                <Select
+                  value={accountType}
+                  onChange={e => setAccountType(e.target.value as AccountType)}
+                  placeholder="-- Select --"
+                >
+                  <option value="current">Current Account</option>
+                  <option value="savings">Savings Account</option>
+                  <option value="cash">Cash Account</option>
+                </Select>
+                <FormErrorMessage>{errors.accountType}</FormErrorMessage>
+              </FormControl>
+
+              {(accountType === 'current' || accountType === 'savings') && (
+                <FormControl isRequired isInvalid={!!errors.bankName}>
+                  <FormLabel>Bank Name</FormLabel>
+                  <Input
+                    value={bankName}
+                    onChange={e => setBankName(e.target.value)}
+                  />
+                  <FormErrorMessage>{errors.bankName}</FormErrorMessage>
+                </FormControl>
+              )}
+
+              {(accountType === 'current' || accountType === 'savings') && (
+                <FormControl isRequired isInvalid={!!errors.accountNumber}>
+                  <FormLabel>Bank Account Number</FormLabel>
+                  <Input
+                    value={accountNumber}
+                    onChange={e => setAccountNumber(e.target.value)}
+                  />
+                  <FormErrorMessage>{errors.accountNumber}</FormErrorMessage>
+                </FormControl>
+              )}
+
+              <FormControl isRequired isInvalid={!!errors.openingBalance}>
+                <FormLabel>Opening Balance</FormLabel>
+                <Input
+                  type="number"
+                  value={openingBalance}
+                  onChange={e => setOpeningBalance(e.target.value)}
+                />
+                <FormErrorMessage>{errors.openingBalance}</FormErrorMessage>
+              </FormControl>
+
+              {submitError && (
+                <Alert status="error" borderRadius="md">
+                  <AlertIcon />
+                  {submitError}
+                </Alert>
+              )}
+            </VStack>
           </ModalBody>
+
           <ModalFooter>
-            <Button colorScheme="blue" mr={3} type="submit">
+            <Button
+              type="submit"
+              colorScheme="blue"
+              mr={3}
+              isLoading={submitting}
+              loadingText="Adding..."
+            >
               Add Account
             </Button>
-            <Button onClick={onClose} variant="ghost">Cancel</Button>
+            <Button variant="ghost" onClick={onClose} isDisabled={submitting}>
+              Cancel
+            </Button>
           </ModalFooter>
         </form>
       </ModalContent>

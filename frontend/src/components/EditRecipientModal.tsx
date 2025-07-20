@@ -1,5 +1,22 @@
 import React, { useState, useEffect } from "react";
-// ...existing code...
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  Button,
+  FormControl,
+  FormLabel,
+  Input,
+  Select,
+  FormErrorMessage,
+  Stack,
+  Alert,
+  AlertIcon,
+} from '@chakra-ui/react';
 
 const API_BASE = "http://localhost:3000";
 
@@ -34,6 +51,28 @@ const EditRecipientModal: React.FC<EditRecipientModalProps> = ({
   }, [isOpen, recipient]);
 
   if (!isOpen || !recipient) return null;
+
+  // Prevent editing ACCOUNT-type recipients as they are automatically managed
+  if (recipient.recipient_type === 'account') {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Recipient</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Alert status="info">
+              <AlertIcon />
+              Account-type recipients are automatically managed by the system and cannot be edited manually.
+            </Alert>
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={onClose}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,51 +122,68 @@ const EditRecipientModal: React.FC<EditRecipientModalProps> = ({
   };
 
   return (
-    <div className="add-account-modalv2-overlay" role="dialog" aria-modal="true">
-      <form className="add-account-modalv2-form common-modal-form" onSubmit={handleSubmit}>
-        <div className="add-account-modalv2-header common-modal-header">
-          <span className="add-account-modalv2-title common-modal-title">Edit Recipient</span>
-          <button
-            className="add-account-modalv2-close small-close-btn"
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-          >&#10005;</button>
-        </div>
-        <div className="form-group">
-          <label htmlFor="recipient-name">Recipient Name<span aria-hidden="true">*</span></label>
-          <input
-            id="recipient-name"
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            autoFocus
-            required
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="recipient-type">Recipient Type<span aria-hidden="true">*</span></label>
-          <select
-            id="recipient-type"
-            value={recipient_type}
-            onChange={e => setRecipientType(e.target.value)}
-            required
-          >
-            <option value="customer">Customer</option>
-            <option value="supplier">Supplier</option>
-            <option value="utility">Utility</option>
-            <option value="employee">Employee</option>
-            <option value="bank">Bank</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        {error && <div className="add-account-modalv2-error">{error}</div>}
-        <div className="add-account-modalv2-actions common-modal-actions">
-          <button type="button" className="secondary-btn" onClick={onClose} disabled={loading}>Cancel</button>
-          <button type="submit" className="primary-btn" disabled={loading}>{loading ? "Saving..." : "Update Recipient"}</button>
-        </div>
-      </form>
-    </div>
+    <Modal isOpen={isOpen} onClose={onClose} isCentered>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Edit Recipient</ModalHeader>
+        <ModalCloseButton />
+        <form onSubmit={handleSubmit}>
+          <ModalBody>
+            <Stack spacing={4}>
+              <FormControl isRequired isInvalid={!!error && error.includes('name')}>
+                <FormLabel htmlFor="recipient-name">Recipient Name</FormLabel>
+                <Input
+                  id="recipient-name"
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  autoFocus
+                />
+                <FormErrorMessage>Recipient name is required</FormErrorMessage>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel htmlFor="recipient-type">Recipient Type</FormLabel>
+                <Select
+                  id="recipient-type"
+                  value={recipient_type}
+                  onChange={e => setRecipientType(e.target.value)}
+                >
+                  <option value="customer">Customer</option>
+                  <option value="supplier">Supplier</option>
+                  <option value="utility">Utility</option>
+                  <option value="employee">Employee</option>
+                  <option value="bank">Bank</option>
+                  <option value="other">Other</option>
+                </Select>
+              </FormControl>
+
+              {error && (
+                <Alert status="error">
+                  <AlertIcon />
+                  {error}
+                </Alert>
+              )}
+            </Stack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button
+              type="submit"
+              colorScheme="blue"
+              mr={3}
+              isLoading={loading}
+              loadingText="Saving..."
+            >
+              Update Recipient
+            </Button>
+            <Button variant="ghost" onClick={onClose} isDisabled={loading}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </form>
+      </ModalContent>
+    </Modal>
   );
 };
 

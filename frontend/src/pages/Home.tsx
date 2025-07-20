@@ -1,43 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate} from 'react-router-dom';
-import { Box, Button, Heading, Text, SimpleGrid, IconButton } from '@chakra-ui/react';
+import { Box, Button, Heading, IconButton, SimpleGrid, Text } from '@chakra-ui/react';
 import { AddIcon } from '@chakra-ui/icons';
-import AddAccountModal from '../components/AddAccountModal';
+import { useNavigate } from 'react-router-dom';
 import AccountDashboardCard from '../components/AccountDashboardCard';
+import AddAccountModal from '../components/AddAccountModal';
+import EditAccountModal from '../components/EditAccountModal';
+import AddTransactionModal from '../components/AddTransactionModal';
+import DeleteAccountModal from '../components/DeleteAccountModal';
+import { getAccounts, type Account } from '../api/accounts';
 
-interface Account {
-  id: number;
-  account_name: string;
-  account_type: string;
-  // ...other fields as needed
-}
+const bgGradient = 'linear(to-br, #bfdbfe, #fff, #93c5fd)';
+const cardBg = '#fff';
+const cardBorder = '#dbeafe';
+const headingColor = '#1e40af';
+const textColor = '#475569';
+
 const Home: React.FC = () => {
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [editAccountModalOpen, setEditAccountModalOpen] = useState(false);
+  const [addTransactionModalOpen, setAddTransactionModalOpen] = useState(false);
+  const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [balances, setBalances] = useState<Record<number, number | null>>({});
   const navigate = useNavigate();
 
-  const fetchAccounts = async () => {
-    const res = await fetch('http://localhost:3000/accounts');
-    if (res.ok) {
-      const data = await res.json();
-      setAccounts(data);
-    }
-  };
-
   useEffect(() => {
+    const fetchAccounts = async () => {
+      try {
+        const data = await getAccounts();
+        setAccounts(data);
+      } catch (err) {
+        console.error('Failed to fetch accounts:', err);
+      }
+    };
     fetchAccounts();
   }, []);
 
   useEffect(() => {
-    if (accounts.length === 0) return;
     const fetchBalances = async () => {
       const newBalances: Record<number, number | null> = {};
       await Promise.all(accounts.map(async (acc) => {
         try {
           const res = await fetch(`http://localhost:3000/accounts/${acc.id}/balance`);
-          const data = await res.json();
-          newBalances[acc.id] = data.balance;
+          if (res.ok) {
+            const data = await res.json();
+            newBalances[acc.id] = data.balance;
+          } else {
+            newBalances[acc.id] = null;
+          }
         } catch {
           newBalances[acc.id] = null;
         }
@@ -47,16 +58,59 @@ const Home: React.FC = () => {
     fetchBalances();
   }, [accounts]);
 
-  // Chakra v3+ (Panda) does not export useColorModeValue. Use hardcoded values or implement your own color mode logic if needed.
-  const bgGradient = 'linear(to-br, #bfdbfe, #fff, #93c5fd)';
-  const cardBg = '#fff';
-  const cardBorder = '#dbeafe';
-  const headingColor = '#1e40af';
-  const textColor = '#475569';
+  // Handler functions for account actions
+  const handleEditAccount = (account: Account) => {
+    setSelectedAccount(account);
+    setEditAccountModalOpen(true);
+  };
+
+  const handleAddTransaction = (account: Account) => {
+    setSelectedAccount(account);
+    setAddTransactionModalOpen(true);
+  };
+
+  const handleViewTransactions = (accountId: number) => {
+    // Navigate to a transactions list page for this account (if it exists)
+    // For now, we'll navigate to the account details page
+    navigate(`/accounts/${accountId}`);
+  };
+
+  const handleDeleteAccount = (account: Account) => {
+    setSelectedAccount(account);
+    setDeleteAccountModalOpen(true);
+  };
+
+  const handleAccountDeleted = async () => {
+    // Refresh accounts list after deletion
+    try {
+      const data = await getAccounts();
+      setAccounts(data);
+      // Clear balances for deleted account
+      if (selectedAccount) {
+        setBalances(prev => {
+          const updated = { ...prev };
+          delete updated[selectedAccount.id];
+          return updated;
+        });
+      }
+    } catch (error) {
+      console.error('Failed to refresh accounts:', error);
+    }
+  };
+
+  const handleAccountUpdated = async () => {
+    // Refresh accounts list after update
+    try {
+      const data = await getAccounts();
+      setAccounts(data);
+    } catch (err) {
+      console.error('Failed to refresh accounts:', err);
+    }
+  };
 
   return (
     <Box minH="100vh" py={12} px={2} bgGradient={bgGradient} transition="background 0.3s">
-      <Box maxW="4xl" mx="auto" bg={cardBg} borderRadius="3xl" boxShadow="2xl" p={10} borderWidth={1} borderColor={cardBorder}>
+      <Box maxW="5xl" mx="auto" bg={cardBg} borderRadius="3xl" boxShadow="2xl" p={10} borderWidth={1} borderColor={cardBorder}>
         <Heading as="h1" size="2xl" color={headingColor} mb={1} textAlign="center" fontWeight="extrabold" letterSpacing="tight" whiteSpace="nowrap">
           Welcome to MyTNS - Finance Manager
         </Heading>
@@ -68,20 +122,20 @@ const Home: React.FC = () => {
             + Add Account
           </Button>
         ) : (
-          <SimpleGrid columns={{ base: 1, md: 2 }} gap={8}>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 2 }} gap={6} spacing={4}>
             {accounts.map(acc => (
               <AccountDashboardCard
                 key={acc.id}
                 id={acc.id}
                 name={acc.account_name}
-                type={acc.account_type}
+                accountType={acc.account_type}
                 balance={balances[acc.id]}
                 onViewRecipients={() => navigate(`/accounts/${acc.id}/recipients`)}
-                onAddTransaction={() => alert('Add Transaction for ' + acc.account_name)}
-                onViewTransactions={() => alert('View Transactions for ' + acc.account_name)}
+                onAddTransaction={() => handleAddTransaction(acc)}
+                onViewTransactions={() => handleViewTransactions(acc.id)}
                 onViewDetails={() => navigate(`/accounts/${acc.id}`)}
-                onEdit={() => alert('Edit Account ' + acc.account_name)}
-                onDelete={() => alert('Delete Account ' + acc.account_name)}
+                onEdit={() => handleEditAccount(acc)}
+                onDelete={() => handleDeleteAccount(acc)}
               />
             ))}
           </SimpleGrid>
@@ -100,8 +154,66 @@ const Home: React.FC = () => {
           zIndex={50}
         />
       </Box>
-      <AddAccountModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} onAccountAdded={fetchAccounts} />
-      {/* Route for recipients list is defined in App.tsx, not here */}
+      <AddAccountModal 
+        isOpen={addModalOpen} 
+        onClose={() => setAddModalOpen(false)} 
+        onAccountAdded={async () => {
+          try {
+            const data = await getAccounts();
+            setAccounts(data);
+          } catch (err) {
+            console.error('Failed to refresh accounts:', err);
+          }
+        }} 
+      />
+      
+      {/* Edit Account Modal */}
+      {selectedAccount && (
+        <EditAccountModal
+          isOpen={editAccountModalOpen}
+          account={selectedAccount}
+          onClose={() => {
+            setEditAccountModalOpen(false);
+            setSelectedAccount(null);
+          }}
+          onAccountUpdated={() => {
+            setEditAccountModalOpen(false);
+            setSelectedAccount(null);
+            handleAccountUpdated();
+          }}
+        />
+      )}
+      
+      {/* Add Transaction Modal */}
+      {selectedAccount && (
+        <AddTransactionModal
+          isOpen={addTransactionModalOpen}
+          accountId={selectedAccount.id.toString()}
+          onClose={() => {
+            setAddTransactionModalOpen(false);
+            setSelectedAccount(null);
+          }}
+          onSuccess={() => {
+            setAddTransactionModalOpen(false);
+            setSelectedAccount(null);
+          }}
+        />
+      )}
+      
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={deleteAccountModalOpen}
+        account={selectedAccount}
+        onClose={() => {
+          setDeleteAccountModalOpen(false);
+          setSelectedAccount(null);
+        }}
+        onAccountDeleted={() => {
+          setDeleteAccountModalOpen(false);
+          setSelectedAccount(null);
+          handleAccountDeleted();
+        }}
+      />
     </Box>
   );
 };

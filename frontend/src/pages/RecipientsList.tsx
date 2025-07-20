@@ -16,11 +16,24 @@ const RecipientsList: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [accountName, setAccountName] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editRecipient, setEditRecipient] = useState<Recipient | null>(null);
+
+  const fetchAccountName = async () => {
+    try {
+      if (!id) throw new Error("No account id provided");
+      const res = await fetch(`${API_BASE}/accounts/${id}`);
+      if (!res.ok) throw new Error("Failed to fetch account");
+      const data = await res.json();
+      setAccountName(data.account_name);
+    } catch (err) {
+      console.error("Failed to fetch account name:", err);
+    }
+  };
 
   const fetchRecipients = async () => {
     setLoading(true);
@@ -43,6 +56,7 @@ const RecipientsList: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchAccountName();
     fetchRecipients();
     // eslint-disable-next-line
   }, [id]);
@@ -74,7 +88,6 @@ const RecipientsList: React.FC = () => {
   const bgGradient = useColorModeValue('blue.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.900');
   const cardBorder = useColorModeValue('blue.100', 'gray.800');
-  const headingColor = useColorModeValue('blue.800', 'blue.200');
   const inputBorder = useColorModeValue('gray.300', 'gray.700');
   const inputBg = useColorModeValue('white', 'gray.800');
   const inputColor = useColorModeValue('gray.800', 'gray.100');
@@ -98,7 +111,7 @@ const RecipientsList: React.FC = () => {
               Back
             </Button>
             <Heading as="h2" size="lg" color="white" fontWeight="extrabold" letterSpacing="tight" textAlign="center" flex={1}>
-              Recipients
+              Recipients for {accountName}
             </Heading>
             <Button colorScheme="whiteAlpha" variant="ghost" opacity={0} pointerEvents="none">Back</Button>
           </Flex>

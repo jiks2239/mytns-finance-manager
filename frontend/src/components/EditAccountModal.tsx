@@ -1,15 +1,32 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
-// ...existing code...
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  Button,
+  FormControl,
+  FormLabel,
+  Input,
+  Select,
+  FormErrorMessage,
+  VStack,
+  Alert,
+  AlertIcon,
+} from '@chakra-ui/react';
 
 interface Account {
   id: string | number;
   account_name: string;
-  account_number: string;
+  account_number?: string;
   account_type: string;
-  bank_name: string;
-  opening_balance: number | string;
-  description?: string;
+  bank_name?: string;
+  opening_balance?: number | string;
+  notes?: string;
 }
 
 interface EditAccountModalProps {
@@ -25,16 +42,13 @@ type FormValues = {
   account_type: string;
   bank_name: string;
   opening_balance: number;
-  description: string;
+  notes: string;
 };
 
 const ACCOUNT_TYPES = [
   { value: 'current', label: 'Current Account' },
   { value: 'savings', label: 'Savings Account' },
   { value: 'cash', label: 'Cash' },
-  { value: 'credit_card', label: 'Credit Card' },
-  { value: 'loan', label: 'Loan' },
-  { value: 'other', label: 'Other' },
 ];
 
 const EditAccountModal: React.FC<EditAccountModalProps> = ({
@@ -62,13 +76,15 @@ const EditAccountModal: React.FC<EditAccountModalProps> = ({
       account_type: account?.account_type ?? '',
       bank_name: account?.bank_name ?? '',
       opening_balance,
-      description: account?.description ?? '',
+      notes: account?.notes ?? '',
     };
   }, [account]);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormValues>({
     defaultValues,
   });
+
+  const watchedAccountType = watch('account_type');
 
   useEffect(() => {
     if (isOpen && account) {
@@ -82,17 +98,24 @@ const EditAccountModal: React.FC<EditAccountModalProps> = ({
     setLoading(true);
     setError('');
     try {
+      const updateData: Record<string, string | number> = {
+        account_name: data.account_name,
+        account_type: data.account_type,
+      };
+
+      // Add fields based on account type
+      if (data.account_type !== 'cash') {
+        updateData.account_number = data.account_number;
+        updateData.bank_name = data.bank_name;
+      }
+
+      updateData.opening_balance = data.opening_balance;
+      updateData.notes = data.notes;
+
       const res = await fetch(`http://localhost:3000/accounts/${account.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          account_name: data.account_name,
-          account_number: data.account_number,
-          account_type: data.account_type,
-          bank_name: data.bank_name,
-          opening_balance: data.opening_balance,
-          description: data.description,
-        }),
+        body: JSON.stringify(updateData),
       });
       if (!res.ok) throw new Error('Failed to update account');
       onAccountUpdated();
@@ -109,61 +132,104 @@ const EditAccountModal: React.FC<EditAccountModalProps> = ({
   };
 
   return (
-    <div className="add-account-modalv2-overlay" role="dialog" aria-modal="true">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="add-account-modalv2-form common-modal-form"
-      >
-        <div className="add-account-modalv2-header common-modal-header">
-          <span className="add-account-modalv2-title common-modal-title">Edit Account</span>
-          <button
-            className="add-account-modal-close small-close-btn"
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-          >&#10005;</button>
-        </div>
-        <div className="form-group">
-          <label htmlFor="account_name">Account Name<span aria-hidden="true">*</span></label>
-          <input id="account_name" {...register('account_name', { required: true })} />
-          {errors.account_name && <span className="error">Account Name is required.</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="account_number">Account Number<span aria-hidden="true">*</span></label>
-          <input id="account_number" {...register('account_number', { required: true })} />
-          {errors.account_number && <span className="error">Account Number is required.</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="account_type">Account Type<span aria-hidden="true">*</span></label>
-          <select id="account_type" {...register('account_type', { required: true })}>
-            <option value="">-- Select --</option>
-            {ACCOUNT_TYPES.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          {errors.account_type && <span className="error">Account Type is required.</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="bank_name">Bank Name<span aria-hidden="true">*</span></label>
-          <input id="bank_name" {...register('bank_name', { required: true })} />
-          {errors.bank_name && <span className="error">Bank Name is required.</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="opening_balance">Opening Balance<span aria-hidden="true">*</span></label>
-          <input id="opening_balance" type="number" step="0.01" {...register('opening_balance', { required: true, valueAsNumber: true })} />
-          {errors.opening_balance && <span className="error">Opening Balance is required.</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="description">Description</label>
-          <input id="description" {...register('description')} />
-        </div>
-        {error && <div className="add-account-modalv2-error">{error}</div>}
-        <div className="add-account-modalv2-actions common-modal-actions">
-          <button type="button" className="secondary-btn" onClick={onClose} disabled={loading}>Cancel</button>
-          <button type="submit" className="primary-btn" disabled={loading}>{loading ? 'Saving...' : 'Update Account'}</button>
-        </div>
-      </form>
-    </div>
+    <Modal isOpen={isOpen} onClose={onClose} size="lg">
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Edit Account</ModalHeader>
+        <ModalCloseButton />
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl isInvalid={!!errors.account_name}>
+                <FormLabel>Account Name</FormLabel>
+                <Input
+                  {...register('account_name', { required: 'Account Name is required' })}
+                  placeholder="Enter account name"
+                />
+                <FormErrorMessage>{errors.account_name?.message}</FormErrorMessage>
+              </FormControl>
+
+              <FormControl isInvalid={!!errors.account_type}>
+                <FormLabel>Account Type</FormLabel>
+                <Select {...register('account_type', { required: 'Account Type is required' })}>
+                  <option value="">-- Select --</option>
+                  {ACCOUNT_TYPES.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </Select>
+                <FormErrorMessage>{errors.account_type?.message}</FormErrorMessage>
+              </FormControl>
+
+              {/* Account Number - not required for cash accounts */}
+              {watchedAccountType !== 'cash' && (
+                <FormControl isInvalid={!!errors.account_number}>
+                  <FormLabel>Account Number</FormLabel>
+                  <Input
+                    {...register('account_number', { 
+                      required: watchedAccountType !== 'cash' ? 'Account Number is required' : false
+                    })}
+                    placeholder="Enter account number"
+                  />
+                  <FormErrorMessage>{errors.account_number?.message}</FormErrorMessage>
+                </FormControl>
+              )}
+
+              {/* Bank Name - not required for cash accounts */}
+              {watchedAccountType !== 'cash' && (
+                <FormControl isInvalid={!!errors.bank_name}>
+                  <FormLabel>Bank Name</FormLabel>
+                  <Input
+                    {...register('bank_name', { 
+                      required: watchedAccountType !== 'cash' ? 'Bank Name is required' : false
+                    })}
+                    placeholder="Enter bank name"
+                  />
+                  <FormErrorMessage>{errors.bank_name?.message}</FormErrorMessage>
+                </FormControl>
+              )}
+
+              <FormControl isInvalid={!!errors.opening_balance}>
+                <FormLabel>Opening Balance</FormLabel>
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...register('opening_balance', { 
+                    required: 'Opening Balance is required',
+                    valueAsNumber: true 
+                  })}
+                  placeholder="Enter opening balance"
+                />
+                <FormErrorMessage>{errors.opening_balance?.message}</FormErrorMessage>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Notes</FormLabel>
+                <Input
+                  {...register('notes')}
+                  placeholder="Enter any notes (optional)"
+                />
+              </FormControl>
+
+              {error && (
+                <Alert status="error">
+                  <AlertIcon />
+                  {error}
+                </Alert>
+              )}
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onClose} isDisabled={loading}>
+              Cancel
+            </Button>
+            <Button colorScheme="blue" type="submit" isLoading={loading} loadingText="Updating...">
+              Update Account
+            </Button>
+          </ModalFooter>
+        </form>
+      </ModalContent>
+    </Modal>
   );
 };
 

@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Box, Flex, Heading, Text, Table, Thead, Tbody, Tr, Th, Td, Button, IconButton, useColorModeValue, Stack, Tooltip, Stat, StatLabel, StatNumber, StatGroup, Badge, Avatar
+  Box, Flex, Heading, Text, Table, Thead, Tbody, Tr, Th, Td, Button, IconButton, useColorModeValue, Stack, Tooltip, Badge, Avatar
 } from '@chakra-ui/react';
 import { ArrowBackIcon, AddIcon, ViewIcon, EditIcon, DeleteIcon, InfoOutlineIcon } from '@chakra-ui/icons';
 import { FaUniversity, FaWallet } from 'react-icons/fa';
 import AddTransactionModal from '../components/AddTransactionModal';
 import EditTransactionModal from '../components/EditTransactionModal';
+import EditAccountModal from '../components/EditAccountModal';
+import DeleteAccountModal from '../components/DeleteAccountModal';
 
 const API_BASE = 'http://localhost:3000';
 
@@ -57,6 +59,8 @@ const AccountDetails: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [addTxOpen, setAddTxOpen] = useState(false);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
+  const [editAccountOpen, setEditAccountOpen] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -105,8 +109,7 @@ const AccountDetails: React.FC = () => {
   const cardBg = useColorModeValue('white', 'gray.800');
   const cardBorder = useColorModeValue('blue.100', 'gray.700');
   const subHeadingColor = useColorModeValue('blue.800', 'blue.100');
-  const statBg = useColorModeValue('blue.50', 'gray.700');
-  const statBorder = useColorModeValue('blue.100', 'gray.600');
+  const tableHeaderBg = useColorModeValue('blue.50', 'gray.700');
   const badgeBg = useColorModeValue('blue.100', 'blue.900');
   const badgeColor = useColorModeValue('blue.800', 'blue.100');
 
@@ -131,6 +134,8 @@ const AccountDetails: React.FC = () => {
       ? '-'
       : Number(val).toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }) + '/-';
 
+  const displayBalance = balance;
+
   // Add delete handler
   const handleDelete = async (txId: string) => {
     if (!window.confirm('Are you sure you want to delete this transaction?')) return;
@@ -139,41 +144,89 @@ const AccountDetails: React.FC = () => {
     setTransactions(transactions => transactions.filter(tx => tx.id !== txId));
   };
 
+  // Add account update handler
+  const handleAccountUpdated = async () => {
+    // Refresh account data after update
+    if (!id) return;
+    try {
+      const res = await fetch(`${API_BASE}/accounts/${id}`);
+      if (res.ok) {
+        const data: Account = await res.json();
+        setAccount(data);
+      }
+      
+      // Also refresh balance
+      const balanceRes = await fetch(`${API_BASE}/accounts/${id}/balance`);
+      if (balanceRes.ok) {
+        const balanceData = await balanceRes.json();
+        setBalance(balanceData.balance);
+      }
+    } catch (err) {
+      console.error('Failed to refresh account data:', err);
+    }
+  };
+
+  // Handle account deletion
+  const handleAccountDeleted = () => {
+    // Navigate back to home page after successful deletion
+    navigate('/');
+  };
+
   return (
     <Box minH="100vh" py={10} px={2} bgGradient={bgPage} transition="background 0.3s">
       <Box maxW="5xl" mx="auto" bg={cardBg} borderRadius="2xl" boxShadow="2xl" p={{ base: 4, md: 10 }} borderWidth={1} borderColor={cardBorder}>
         {/* Header Card */}
         <Flex align="center" gap={6} mb={8} direction={{ base: 'column', md: 'row' }} bgGradient="linear(to-r, blue.400, blue.600)" borderRadius="xl" p={6} boxShadow="lg">
           <Avatar size="xl" name={account.account_name} bg="white" color="blue.700" icon={<FaWallet fontSize="2rem" />} />
-          <Box flex={1} color="white">
-            <Heading as="h2" size="lg" mb={1} fontWeight="extrabold" letterSpacing="tight">
-              {account.account_name}
-            </Heading>
-            <Stack direction="row" align="center" spacing={4} mb={2}>
+          <Box flex={1} color="white" minW={0}>
+            <Flex align="center" gap={3} mb={1}>
+              <Heading as="h2" size="lg" fontWeight="extrabold" letterSpacing="tight" wordBreak="break-word">
+                {account.account_name}
+              </Heading>
+              <IconButton
+                aria-label="Edit Account"
+                icon={<EditIcon />}
+                size="sm"
+                colorScheme="whiteAlpha"
+                variant="ghost"
+                color="white"
+                _hover={{ bg: 'whiteAlpha.200' }}
+                onClick={() => setEditAccountOpen(true)}
+              />
+              <IconButton
+                aria-label="Delete Account"
+                icon={<DeleteIcon />}
+                size="sm"
+                colorScheme="whiteAlpha"
+                variant="ghost"
+                color="white"
+                _hover={{ bg: 'whiteAlpha.200' }}
+                onClick={() => setDeleteAccountOpen(true)}
+              />
+            </Flex>
+            <Stack direction={{ base: 'column', sm: 'row' }} align={{ base: 'flex-start', sm: 'center' }} spacing={4} mb={2}>
               <Badge bg={badgeBg} color={badgeColor} px={3} py={1} borderRadius="md" fontWeight="bold" fontSize="md">
                 {ACCOUNT_TYPE_LABELS[account.account_type] || account.account_type}
               </Badge>
               {account.bank_name && (
                 <Stack direction="row" align="center" spacing={1}>
                   <Box as={FaUniversity} color="whiteAlpha.800" />
-                  <Text fontWeight="medium" fontSize="md">{account.bank_name}</Text>
+                  <Text fontWeight="medium" fontSize="md" wordBreak="break-word">{account.bank_name}</Text>
                 </Stack>
               )}
             </Stack>
-            <Text fontSize="md" opacity={0.85}>Account No: <b>{account.account_number}</b></Text>
+            {account.account_type !== 'cash' && account.account_number && (
+              <Text fontSize="md" opacity={0.85} wordBreak="break-word">Account No: <b>{account.account_number}</b></Text>
+            )}
+          </Box>
+          {/* Balance Information */}
+          <Box color="white" textAlign={{ base: 'center', md: 'right' }} minW="200px">
+            <Text fontSize="sm" opacity={0.85} mb={1}>Opening Balance</Text>
+            <Text fontSize="lg" fontWeight="bold" mb={3}>{formatCurrency(account.opening_balance)}</Text>
+            <Text fontSize="sm" opacity={0.85} mb={1}>Current Balance</Text>
+            <Text fontSize="xl" fontWeight="extrabold" color="white">{formatCurrency(displayBalance)}</Text>
           </Box>
         </Flex>
-        {/* Stat Cards */}
-        <StatGroup bg={statBg} borderRadius="lg" borderWidth={1} borderColor={statBorder} p={4} mb={8} boxShadow="md" flexWrap="wrap">
-          <Stat minW="180px">
-            <StatLabel color="gray.500">Opening Balance</StatLabel>
-            <StatNumber color="blue.700" fontWeight="bold">{formatCurrency(account.opening_balance)}</StatNumber>
-          </Stat>
-          <Stat minW="180px">
-            <StatLabel color="gray.500">Current Balance</StatLabel>
-            <StatNumber color="green.600" fontWeight="bold">{formatCurrency(balance)}</StatNumber>
-          </Stat>
-        </StatGroup>
         {/* Transactions Table */}
         <Flex align="center" justify="space-between" mb={2} gap={2} flexWrap="wrap">
           <Heading as="h3" size="md" color={subHeadingColor} fontWeight="bold">Transactions</Heading>
@@ -184,9 +237,9 @@ const AccountDetails: React.FC = () => {
         {transactions.length === 0 ? (
           <Text color="gray.500" mb={6} textAlign="center">No transactions found.</Text>
         ) : (
-          <Box overflowX="auto" mb={6} borderRadius="lg" borderWidth={1} borderColor={statBorder} boxShadow="sm">
+          <Box overflowX="auto" mb={6} borderRadius="lg" borderWidth={1} borderColor={cardBorder} boxShadow="sm">
             <Table variant="simple" size="md" bg={cardBg}>
-              <Thead position="sticky" top={0} zIndex={1} bg={statBg}>
+              <Thead position="sticky" top={0} zIndex={1} bg={tableHeaderBg}>
                 <Tr>
                   <Th>Created</Th>
                   <Th>Type</Th>
@@ -268,6 +321,30 @@ const AccountDetails: React.FC = () => {
           }}
         />
       )}
+      
+      {/* Edit Account Modal */}
+      <EditAccountModal
+        isOpen={editAccountOpen}
+        account={account}
+        onClose={() => setEditAccountOpen(false)}
+        onAccountUpdated={() => {
+          setEditAccountOpen(false);
+          handleAccountUpdated();
+        }}
+      />
+      
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={deleteAccountOpen}
+        account={account ? {
+          id: parseInt(account.id),
+          account_name: account.account_name,
+          account_type: account.account_type,
+          opening_balance: account.opening_balance
+        } : null}
+        onClose={() => setDeleteAccountOpen(false)}
+        onAccountDeleted={handleAccountDeleted}
+      />
     </Box>
   );
 };

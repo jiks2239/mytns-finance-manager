@@ -21,11 +21,7 @@ type TransactionType =
 interface Recipient {
   id: string;
   name: string;
-}
-
-interface Account {
-  id: string | number;
-  name: string;
+  account_id?: number; // For ACCOUNT-type recipients
 }
 
 type FormValues = {
@@ -60,7 +56,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 }) => {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [recipientType, setRecipientType] = useState<string>("all");
-  const [accounts, setAccounts] = useState<Account[]>([]); // <-- MISSING STATE
+  const [transferRecipients, setTransferRecipients] = useState<Recipient[]>([]); // For filtered transfer recipients
 
   const {
     register,
@@ -93,33 +89,32 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   }, [isOpen, reset]);
 
   useEffect(() => {
-    // Fetch recipients from API
+    // Fetch recipients from API - use different endpoints based on recipient type filter
     let url = `${API_BASE}/recipients`;
     if (recipientType && recipientType !== 'all') {
       url += `?type=${recipientType}`;
+    } else {
+      // For regular recipient selection, use the endpoint that includes self-account
+      url = `${API_BASE}/recipients/for-transactions/${accountId}`;
     }
+    
     fetch(url)
       .then(res => res.ok ? res.json() : [])
       .then(data => setRecipients(data))
       .catch(() => setRecipients([]));
 
-    // Fetch accounts from API and ensure correct field for name
-    fetch(`${API_BASE}/accounts`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch accounts");
-        return res.json();
-      })
-      .then((data) => {
-        setAccounts(
-          data
-            .filter((acc: { id?: string | number; account_name?: string }) => acc && acc.id && acc.account_name)
-            .map((acc: { id: string | number; account_name: string }) => ({
-              id: acc.id,
-              name: acc.account_name,
-            }))
-        );
-      })
-      .catch(() => setAccounts([]));
+    // Fetch filtered recipients for internal transfers
+    if (accountId) {
+      fetch(`${API_BASE}/recipients/for-transfer/${accountId}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to fetch transfer recipients");
+          return res.json();
+        })
+        .then((data) => {
+          setTransferRecipients(data);
+        })
+        .catch(() => setTransferRecipients([]));
+    }
   }, [accountId, recipientType]);
 
   const transaction_type = watch("transaction_type");
@@ -355,13 +350,11 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               {...register("to_account_id", { required: true })}
             >
               <option value="">-- Select --</option>
-              {accounts
-                .filter((acc) => String(acc.id) !== String(accountId))
-                .map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name}
-                  </option>
-                ))}
+              {transferRecipients.map((recipient) => (
+                <option key={recipient.id} value={recipient.account_id}>
+                  {recipient.name}
+                </option>
+              ))}
             </select>
             {errors.to_account_id && <span className="error">To Account is required.</span>}
           </div>
