@@ -5,17 +5,44 @@ import {
   IsOptional,
   IsString,
   IsDateString,
+  IsPositive,
+  ValidateNested,
 } from 'class-validator';
-import { TransactionType, TransactionStatus } from '../transactions.enums';
+import { Type } from 'class-transformer';
+import {
+  TransactionType,
+  TransactionStatus,
+  TransactionDirection,
+} from '../transactions.enums';
+import { IsValidTransactionDate } from '../validators/transaction-date.validator';
 import { CreateChequeTransactionDetailsDto } from './create-cheque-transaction-details.dto';
 import { CreateOnlineTransferDetailsDto } from './create-online-transfer-details.dto';
 import { CreateBankChargeDetailsDto } from './create-bank-charge-details.dto';
+import { CreateCashDepositDetailsDto } from './create-cash-deposit-details.dto';
+import { CreateBankTransferDetailsDto } from './create-bank-transfer-details.dto';
+import { CreateUpiSettlementDetailsDto } from './create-upi-settlement-details.dto';
+import { CreateAccountTransferDetailsDto } from './create-account-transfer-details.dto';
 
 export class CreateTransactionDto {
   @IsEnum(TransactionType)
   transaction_type: TransactionType;
 
-  @IsNumber()
+  @IsOptional()
+  @IsEnum(TransactionDirection)
+  transaction_direction?: TransactionDirection;
+
+  @IsNumber(
+    {
+      allowNaN: false,
+      allowInfinity: false,
+    },
+    {
+      message: 'Amount must be a valid number',
+    },
+  )
+  @IsPositive({
+    message: 'Amount must be greater than 0',
+  })
   amount: number;
 
   @IsNotEmpty()
@@ -42,15 +69,42 @@ export class CreateTransactionDto {
 
   @IsDateString()
   @IsOptional()
+  @IsValidTransactionDate('status')
   transaction_date?: string; // <-- ensure this exists
 
   // --- Optional child details ---
   @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateChequeTransactionDetailsDto)
   cheque_details?: CreateChequeTransactionDetailsDto;
 
   @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateOnlineTransferDetailsDto)
   online_transfer_details?: CreateOnlineTransferDetailsDto;
 
   @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateBankChargeDetailsDto)
   bank_charge_details?: CreateBankChargeDetailsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateCashDepositDetailsDto)
+  cash_deposit_details?: CreateCashDepositDetailsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateBankTransferDetailsDto)
+  bank_transfer_details?: CreateBankTransferDetailsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateUpiSettlementDetailsDto)
+  upi_settlement_details?: CreateUpiSettlementDetailsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateAccountTransferDetailsDto)
+  account_transfer_details?: CreateAccountTransferDetailsDto;
 }

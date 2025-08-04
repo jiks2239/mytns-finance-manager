@@ -16,6 +16,7 @@ export enum RecipientType {
   UTILITY = 'utility',
   EMPLOYEE = 'employee',
   BANK = 'bank',
+  OWNER = 'owner',
   OTHER = 'other',
 }
 

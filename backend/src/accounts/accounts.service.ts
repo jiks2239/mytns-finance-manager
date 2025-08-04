@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +12,7 @@ import { Account, AccountType } from './accounts.entity';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { Transaction } from 'src/transactions/transactions.entity';
+import { TransactionStatus } from 'src/transactions/transactions.enums';
 import { RecipientsService } from '../recipients/recipients.service';
 import { RecipientType } from '../recipients/recipients.entity';
 
@@ -18,7 +20,7 @@ import { RecipientType } from '../recipients/recipients.entity';
 // import { Transaction } from '../transactions/transaction.entity';
 
 @Injectable()
-export class AccountsService {
+export class AccountsService implements OnModuleInit {
   constructor(
     @InjectRepository(Account)
     private readonly accountRepository: Repository<Account>,
@@ -30,6 +32,15 @@ export class AccountsService {
     private readonly recipientsService: RecipientsService,
   ) {}
 
+  // Initialize current balances when the module starts
+  async onModuleInit() {
+    try {
+      await this.initializeCurrentBalances();
+    } catch (error) {
+      console.error('[ERROR] Failed to initialize current balances:', error);
+    }
+  }
+
   /** 1. Create a new account */
   async create(createAccountDto: CreateAccountDto): Promise<Account> {
     // Only check for duplicate account numbers if an account number is provided
@@ -39,12 +50,15 @@ export class AccountsService {
       });
       if (existing) {
         throw new BadRequestException(
-          'Account with this number already exists.',
+          `This account number is already in use by another account. Please use a different account number.`,
         );
       }
     }
 
-    const account = this.accountRepository.create(createAccountDto);
+    const account = this.accountRepository.create({
+      ...createAccountDto,
+      current_balance: createAccountDto.opening_balance || 0,
+    });
     const savedAccount = await this.accountRepository.save(account);
 
     // Automatically create corresponding recipient
@@ -77,7 +91,34 @@ export class AccountsService {
       throw new NotFoundException('Account not found.');
     }
 
+    // Check if opening balance is being updated
+    const isOpeningBalanceUpdated =
+      updateAccountDto.opening_balance !== undefined;
+    const newOpeningBalance = updateAccountDto.opening_balance;
+
+    // Check if there are any transactions for this account
+    const transactionCount = await this.transactionRepository.count({
+      where: { account: { id } },
+    });
+
+    // Store the old opening balance before updating
+    const oldOpeningBalance = Number(account.opening_balance) || 0;
+
     Object.assign(account, updateAccountDto);
+
+    // Update current balance logic based on the requirements:
+    if (isOpeningBalanceUpdated) {
+      if (transactionCount === 0) {
+        // No transactions: current balance should equal opening balance
+        account.current_balance = newOpeningBalance;
+      } else {
+        // Transactions exist: update current balance by the difference
+        const balanceDifference = Number(newOpeningBalance) - oldOpeningBalance;
+        const currentBalance = Number(account.current_balance) || 0;
+        account.current_balance = currentBalance + balanceDifference;
+      }
+    }
+
     const updatedAccount = await this.accountRepository.save(account);
 
     // Update corresponding recipient if it exists
@@ -86,24 +127,37 @@ export class AccountsService {
     return updatedAccount;
   }
 
-  /** 5. Delete account by ID (restrict if linked transactions) */
+  /** 5. Delete account by ID with cascade deletion of transactions and recipients */
   async remove(id: number): Promise<void> {
-    const account = await this.accountRepository.findOne({ where: { id } });
+    const account = await this.accountRepository.findOne({
+      where: { id },
+      relations: ['transactions', 'destination_transactions', 'recipient'],
+    });
+
     if (!account) {
       throw new NotFoundException('Account not found.');
     }
 
-    // --- Uncomment below when Transaction entity is implemented ---
-    // const linkedTxCount = await this.transactionRepository.count({ where: { account_id: id } });
-    // if (linkedTxCount > 0) {
-    //   throw new BadRequestException('Cannot delete account with linked transactions.');
-    // }
+    // Optional: Check for specific conditions before deletion
+    // For example, you might want to prevent deletion if account has pending transactions
+    const pendingTxCount = await this.transactionRepository.count({
+      where: [
+        { account: { id }, status: TransactionStatus.PENDING },
+        { to_account: { id }, status: TransactionStatus.PENDING },
+      ],
+    });
+    if (pendingTxCount > 0) {
+      throw new BadRequestException(
+        'Cannot delete account with pending transactions. Please complete or cancel pending transactions first.',
+      );
+    }
 
-    // Delete corresponding recipient first
-    await this.deleteAccountRecipient(account);
-
-    // For now, just delete (remove above comments later)
-    await this.accountRepository.delete(id);
+    // Delete the account - TypeORM cascade will handle:
+    // 1. All transactions where this account is the main account
+    // 2. All transactions where this account is the destination (to_account)
+    // 3. The associated recipient (if exists)
+    // 4. All transaction detail entities (due to cascade: true in Transaction entity)
+    await this.accountRepository.remove(account);
   }
 
   /** 6. Find account by account number */
@@ -119,57 +173,54 @@ export class AccountsService {
     });
     if (!account) throw new NotFoundException('Account not found.');
 
-    // Fetch all transactions where this account is either main account or "to_account" (for credits)
-    const transactions = await this.transactionRepository.find({
-      where: [
-        { account: { id: accountId } },
-        { to_account: { id: accountId } },
-      ],
-      relations: ['account', 'to_account'],
-    });
-
-    let balance = Number(account.opening_balance);
-
-    for (const tx of transactions) {
-      // Skip cancelled/failed/bounced/pending for balance
-      if (['cancelled', 'failed', 'bounced', 'pending'].includes(tx.status)) {
-        continue;
-      }
-
-      // Money going out (debit)
-      if (
-        tx.account.id === accountId &&
-        [
-          'cheque',
-          'online',
-          'bank_charge',
-          'other',
-          'internal_transfer',
-        ].includes(tx.transaction_type)
-      ) {
-        balance -= Number(tx.amount);
-      }
-
-      // Money coming in (credit)
-      if (
-        (tx.to_account &&
-          tx.to_account.id === accountId &&
-          ['internal_transfer'].includes(tx.transaction_type)) ||
-        (tx.account.id === accountId &&
-          ['cash_deposit'].includes(tx.transaction_type))
-      ) {
-        balance += Number(tx.amount);
-      }
-    }
-
-    return balance;
+    // Return the current balance which is automatically updated by transactions
+    return Number(account.current_balance);
   }
 
-  /** 8. Get all accounts by type */
+  /** 8. Initialize current balance for existing accounts */
+  async initializeCurrentBalances(): Promise<void> {
+    const accounts = await this.accountRepository.find();
+
+    for (const account of accounts) {
+      // Initialize current_balance if it's null, undefined, or if it should equal opening_balance
+      const currentBalance = Number(account.current_balance) || 0;
+      const openingBalance = Number(account.opening_balance) || 0;
+
+      if (currentBalance === 0 && openingBalance !== 0) {
+        account.current_balance = openingBalance;
+        await this.accountRepository.save(account);
+      }
+    }
+  }
+
+  /** 9. Get all accounts by type */
   async findByType(accountType: AccountType): Promise<Account[]> {
     return await this.accountRepository.find({
       where: { account_type: accountType },
     });
+  }
+
+  /** 10. Get global pending transactions count */
+  async getPendingTransactionsCount(): Promise<number> {
+    return await this.transactionRepository.count({
+      where: { status: TransactionStatus.PENDING },
+    });
+  }
+
+  /** 11. Get pending transactions count for a specific account */
+  async getPendingTransactionsCountByAccount(
+    accountId: number,
+  ): Promise<number> {
+    // For pending transactions, only count transactions where this account is the SOURCE account
+    // (the account initiating the transaction), not the destination account
+    return await this.transactionRepository
+      .createQueryBuilder('transaction')
+      .leftJoin('transaction.account', 'account')
+      .where('account.id = :accountId AND transaction.status = :status', {
+        accountId,
+        status: TransactionStatus.PENDING,
+      })
+      .getCount();
   }
 
   // Helper methods for automatic recipient management
@@ -177,6 +228,7 @@ export class AccountsService {
   /** Create automatic recipient for account */
   private async createAccountRecipient(account: Account): Promise<void> {
     try {
+      // Create the regular account recipient
       const recipientName = account.account_name;
       const recipientData = {
         name: recipientName,
@@ -187,6 +239,21 @@ export class AccountsService {
       };
 
       await this.recipientsService.create(recipientData);
+
+      // Create "Self" recipient for current and savings accounts
+      if (
+        account.account_type === AccountType.CURRENT ||
+        account.account_type === AccountType.SAVINGS
+      ) {
+        const selfRecipientData = {
+          name: 'Self',
+          recipient_type: RecipientType.OWNER,
+          account_id: account.id,
+          notes: `Auto-generated owner recipient for cash deposits to ${account.account_name}`,
+        };
+
+        await this.recipientsService.create(selfRecipientData);
+      }
     } catch (error) {
       console.error('Failed to create account recipient:', error);
       // Don't throw error to avoid failing account creation
@@ -199,6 +266,8 @@ export class AccountsService {
       const recipients = await this.recipientsService.findByAccountId(
         account.id,
       );
+      
+      // Update the account recipient
       const accountRecipient = recipients.find(
         (r) => r.recipient_type === RecipientType.ACCOUNT,
       );
@@ -210,6 +279,22 @@ export class AccountsService {
           notes: `Auto-generated recipient for account: ${account.account_name}`,
         };
         await this.recipientsService.update(accountRecipient.id, updateData);
+      }
+
+      // Update the self recipient notes for current/savings accounts
+      const selfRecipient = recipients.find(
+        (r) => r.recipient_type === RecipientType.OWNER,
+      );
+
+      if (
+        selfRecipient &&
+        (account.account_type === AccountType.CURRENT ||
+          account.account_type === AccountType.SAVINGS)
+      ) {
+        const updateData = {
+          notes: `Auto-generated owner recipient for cash deposits to ${account.account_name}`,
+        };
+        await this.recipientsService.update(selfRecipient.id, updateData);
       }
     } catch (error) {
       console.error('Failed to update account recipient:', error);
@@ -223,11 +308,21 @@ export class AccountsService {
       const recipients = await this.recipientsService.findByAccountId(
         account.id,
       );
+      
+      // Delete the account recipient
       const accountRecipient = recipients.find(
         (r) => r.recipient_type === RecipientType.ACCOUNT,
       );
       if (accountRecipient) {
         await this.recipientsService.remove(accountRecipient.id);
+      }
+
+      // Delete the self recipient if it exists
+      const selfRecipient = recipients.find(
+        (r) => r.recipient_type === RecipientType.OWNER,
+      );
+      if (selfRecipient) {
+        await this.recipientsService.remove(selfRecipient.id);
       }
     } catch (error) {
       console.error('Failed to delete account recipient:', error);

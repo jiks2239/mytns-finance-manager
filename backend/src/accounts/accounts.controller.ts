@@ -40,6 +40,7 @@ export class AccountsController {
       bank_name: acc.bank_name,
       account_number: acc.account_number,
       opening_balance: acc.opening_balance,
+      current_balance: acc.current_balance,
     }));
   }
 
@@ -74,10 +75,34 @@ export class AccountsController {
     return result;
   }
 
-  /** 7. Get current balance for an account */
+  /** 7. Initialize current balances for existing accounts */
+  @Post('initialize-balances')
+  async initializeCurrentBalances() {
+    await this.accountsService.initializeCurrentBalances();
+    return { message: 'Current balances initialized successfully' };
+  }
+
+  /** 8. Get current balance for an account */
   @Get(':id/balance')
   async getCurrentBalance(@Param('id', ParseIntPipe) id: number) {
     const balance = await this.accountsService.getCurrentBalance(id);
     return { id, balance };
+  }
+
+  /** 9. Get global pending transactions count */
+  @Get('pending-transactions/count')
+  async getPendingTransactionsCount() {
+    const count = await this.accountsService.getPendingTransactionsCount();
+    return { pendingCount: count };
+  }
+
+  /** 10. Get pending transactions count for a specific account */
+  @Get(':id/pending-transactions/count')
+  async getPendingTransactionsCountByAccount(
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const count =
+      await this.accountsService.getPendingTransactionsCountByAccount(id);
+    return { pendingCount: count };
   }
 }

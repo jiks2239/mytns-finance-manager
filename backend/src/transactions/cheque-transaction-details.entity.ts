@@ -25,8 +25,17 @@ export class ChequeTransactionDetails {
   cheque_given_date?: Date;
 
   @Column({ type: 'date', nullable: true })
+  cheque_submitted_date?: Date;
+
+  @Column({ type: 'date', nullable: true })
   cheque_due_date?: Date;
 
   @Column({ type: 'date', nullable: true })
   cheque_cleared_date?: Date;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  bank_name?: string;
+
+  @Column({ type: 'text', nullable: true })
+  notes?: string;
 }

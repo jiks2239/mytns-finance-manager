@@ -6,6 +6,10 @@ import { Transaction } from './transactions.entity';
 import { ChequeTransactionDetails } from './cheque-transaction-details.entity';
 import { OnlineTransferDetails } from './online-transfer-details.entity';
 import { BankChargeDetails } from './bank-charge-details.entity';
+import { CashDepositDetails } from './cash-deposit-details.entity';
+import { BankTransferDetails } from './bank-transfer-details.entity';
+import { UpiSettlementDetails } from './upi-settlement-details.entity';
+import { AccountTransferDetails } from './account-transfer-details.entity';
 import { Account } from '../accounts/accounts.entity'; // <-- import Account
 import { Recipient } from '../recipients/recipients.entity'; // <-- import Recipient
 
@@ -16,6 +20,10 @@ import { Recipient } from '../recipients/recipients.entity'; // <-- import Recip
       ChequeTransactionDetails,
       OnlineTransferDetails,
       BankChargeDetails,
+      CashDepositDetails,
+      BankTransferDetails,
+      UpiSettlementDetails,
+      AccountTransferDetails,
       Account, // <-- add Account here
       Recipient, // <-- add Recipient here (already, if using recipient repo)
     ]),

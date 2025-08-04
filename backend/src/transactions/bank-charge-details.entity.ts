@@ -24,9 +24,9 @@ export class BankChargeDetails {
   @Column({ type: 'enum', enum: BankChargeType })
   charge_type: BankChargeType;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
-  charge_amount?: number;
+  @Column({ type: 'date' })
+  charge_date: Date;
 
   @Column({ type: 'text', nullable: true })
-  narration?: string;
+  notes?: string;
 }

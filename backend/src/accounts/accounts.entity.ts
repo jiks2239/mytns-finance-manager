@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
+  OneToMany,
   AfterInsert,
   AfterUpdate,
   AfterRemove,
@@ -36,6 +37,9 @@ export class Account {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   opening_balance: number;
 
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  current_balance: number;
+
   @Column({ type: 'text', nullable: true })
   notes?: string;
 
@@ -45,9 +49,23 @@ export class Account {
   @UpdateDateColumn()
   updated_at: Date;
 
-  // Relationship to auto-generated recipient
-  @OneToOne('Recipient', 'account')
+  // Relationship to auto-generated recipient with cascade delete
+  @OneToOne('Recipient', 'account', { cascade: true, onDelete: 'CASCADE' })
   recipient?: any;
+
+  // Relationship to transactions with cascade delete
+  @OneToMany('Transaction', 'account', {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  transactions?: any[];
+
+  // Relationship to transactions as destination account (to_account) with cascade delete
+  @OneToMany('Transaction', 'to_account', {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  destination_transactions?: any[];
 
   // Lifecycle hooks for automatic recipient management
   @AfterInsert()

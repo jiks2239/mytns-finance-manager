@@ -109,7 +109,9 @@ export class RecipientsService {
         'transaction',
         'transaction.recipient_id = recipient.id',
       )
-      .where('transaction.account_id = :account_id', { _account_id })
+      .where('transaction.account_id = :account_id', {
+        account_id: _account_id,
+      })
       .distinct(true)
       .getMany();
 
@@ -118,10 +120,10 @@ export class RecipientsService {
     return [];
   }
 
-  /** 9a. Find all recipients by direct account_id field (one-to-many)
-   * For account A recipient list view, this returns only:
+  /** 9a. Find recipients belonging to a particular account ID
+   * For account A recipients page, this returns:
    * - All regular recipients (customer, supplier, etc.) created for account A
-   * - Excludes all ACCOUNT-type recipients (including self) from view
+   * - Excludes all ACCOUNT-type recipients and OWNER-type recipients (Self) from view
    */
   async findByAccountId(account_id: number): Promise<Recipient[]> {
     return await this.recipientRepository
@@ -130,14 +132,17 @@ export class RecipientsService {
       .andWhere('recipient.recipient_type != :accountType', {
         accountType: RecipientType.ACCOUNT,
       })
+      .andWhere('recipient.recipient_type != :ownerType', {
+        ownerType: RecipientType.OWNER,
+      })
       .getMany();
   }
 
-  /** 9b. Find all recipients for transaction creation (includes self-account)
+  /** 9b. Find recipients for general transactions (suppliers, customers, etc.)
    * For account A transaction creation, this returns:
    * - All regular recipients (customer, supplier, etc.) created for account A
-   * - Account A itself as a recipient (for self-transactions like bank charges)
-   * - Excludes other ACCOUNT-type recipients (other accounts) as they are only for internal transfers
+   * - Excludes ACCOUNT-type recipients as they are only for specific use cases like bank charges
+   * - Excludes OWNER-type recipients (Self) as they are auto-assigned for cash deposits
    */
   async findRecipientsForTransactions(
     account_id: number,
@@ -145,11 +150,11 @@ export class RecipientsService {
     return await this.recipientRepository
       .createQueryBuilder('recipient')
       .where(
-        '(recipient.account_id = :account_id AND recipient.recipient_type != :accountType) OR ' +
-          '(recipient.recipient_type = :accountType AND recipient.account_id = :account_id)',
+        'recipient.account_id = :account_id AND recipient.recipient_type != :accountType AND recipient.recipient_type != :ownerType',
         {
           account_id,
           accountType: RecipientType.ACCOUNT,
+          ownerType: RecipientType.OWNER,
         },
       )
       .getMany();
