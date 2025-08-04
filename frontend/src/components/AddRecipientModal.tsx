@@ -122,6 +122,7 @@ const AddRecipientModal: React.FC<AddRecipientModalProps> = ({
                   <option value="utility">Utility</option>
                   <option value="employee">Employee</option>
                   <option value="bank">Bank</option>
+                  <option value="owner">Owner</option>
                   <option value="other">Other</option>
                 </Select>
                 {error && error.includes('type') && <FormErrorMessage>{error}</FormErrorMessage>}

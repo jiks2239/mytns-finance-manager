@@ -7,7 +7,7 @@ import AddAccountModal from '../components/AddAccountModal';
 import EditAccountModal from '../components/EditAccountModal';
 import AddTransactionModal from '../components/AddTransactionModal';
 import DeleteAccountModal from '../components/DeleteAccountModal';
-import { getAccounts, type Account } from '../api/accounts';
+import api, { type Account } from '../api';
 
 const bgGradient = 'linear(to-br, #bfdbfe, #fff, #93c5fd)';
 const cardBg = '#fff';
@@ -23,12 +23,13 @@ const Home: React.FC = () => {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [balances, setBalances] = useState<Record<number, number | null>>({});
+  const [pendingCounts, setPendingCounts] = useState<Record<number, number>>({});
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        const data = await getAccounts();
+        const data = await api.accounts.getAll();
         setAccounts(data);
       } catch (err) {
         console.error('Failed to fetch accounts:', err);
@@ -40,20 +41,23 @@ const Home: React.FC = () => {
   useEffect(() => {
     const fetchBalances = async () => {
       const newBalances: Record<number, number | null> = {};
+      const newPendingCounts: Record<number, number> = {};
+      
       await Promise.all(accounts.map(async (acc) => {
         try {
-          const res = await fetch(`http://localhost:3000/accounts/${acc.id}/balance`);
-          if (res.ok) {
-            const data = await res.json();
-            newBalances[acc.id] = data.balance;
-          } else {
-            newBalances[acc.id] = null;
-          }
+          const balanceData = await api.accounts.getBalance(acc.id);
+          newBalances[acc.id] = balanceData.balance;
+          
+          const pendingData = await api.accounts.getPendingTransactionsCountByAccount(acc.id);
+          newPendingCounts[acc.id] = pendingData.pendingCount;
         } catch {
           newBalances[acc.id] = null;
+          newPendingCounts[acc.id] = 0;
         }
       }));
+      
       setBalances(newBalances);
+      setPendingCounts(newPendingCounts);
     };
     fetchBalances();
   }, [accounts]);
@@ -83,7 +87,7 @@ const Home: React.FC = () => {
   const handleAccountDeleted = async () => {
     // Refresh accounts list after deletion
     try {
-      const data = await getAccounts();
+      const data = await api.accounts.getAll();
       setAccounts(data);
       // Clear balances for deleted account
       if (selectedAccount) {
@@ -101,8 +105,9 @@ const Home: React.FC = () => {
   const handleAccountUpdated = async () => {
     // Refresh accounts list after update
     try {
-      const data = await getAccounts();
+      const data = await api.accounts.getAll();
       setAccounts(data);
+      // The useEffect will automatically refresh balances and pending counts when accounts change
     } catch (err) {
       console.error('Failed to refresh accounts:', err);
     }
@@ -130,6 +135,7 @@ const Home: React.FC = () => {
                 name={acc.account_name}
                 accountType={acc.account_type}
                 balance={balances[acc.id]}
+                pendingTransactionsCount={pendingCounts[acc.id] || 0}
                 onViewRecipients={() => navigate(`/accounts/${acc.id}/recipients`)}
                 onAddTransaction={() => handleAddTransaction(acc)}
                 onViewTransactions={() => handleViewTransactions(acc.id)}
@@ -158,12 +164,7 @@ const Home: React.FC = () => {
         isOpen={addModalOpen} 
         onClose={() => setAddModalOpen(false)} 
         onAccountAdded={async () => {
-          try {
-            const data = await getAccounts();
-            setAccounts(data);
-          } catch (err) {
-            console.error('Failed to refresh accounts:', err);
-          }
+          await handleAccountUpdated();
         }} 
       />
       
@@ -193,9 +194,11 @@ const Home: React.FC = () => {
             setAddTransactionModalOpen(false);
             setSelectedAccount(null);
           }}
-          onSuccess={() => {
+          onSuccess={async () => {
             setAddTransactionModalOpen(false);
             setSelectedAccount(null);
+            // Refresh accounts to update balances and pending counts
+            await handleAccountUpdated();
           }}
         />
       )}

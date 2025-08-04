@@ -17,7 +17,7 @@ import {
   Alert,
   AlertIcon,
 } from '@chakra-ui/react';
-import { addAccount } from '../api/accounts';
+import api from '../api';
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -102,7 +102,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose, onAc
         payload.opening_balance = Number(openingBalance);
         // Cash accounts don't have bank_name or account_number
       }
-      await addAccount(payload);
+      await api.accounts.create(payload);
       await onAccountAdded();
       onClose();
     } catch (err: unknown) {

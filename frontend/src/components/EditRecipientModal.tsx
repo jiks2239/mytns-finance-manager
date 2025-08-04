@@ -154,6 +154,7 @@ const EditRecipientModal: React.FC<EditRecipientModalProps> = ({
                   <option value="utility">Utility</option>
                   <option value="employee">Employee</option>
                   <option value="bank">Bank</option>
+                  <option value="owner">Owner</option>
                   <option value="other">Other</option>
                 </Select>
               </FormControl>

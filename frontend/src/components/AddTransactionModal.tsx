@@ -1,6 +1,41 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from 'react-hook-form';
-// ...existing code...
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  Button,
+  FormControl,
+  FormLabel,
+  FormErrorMessage,
+  Input,
+  Select,
+  Textarea,
+  VStack,
+  HStack,
+  Box,
+  Heading,
+  useToast,
+} from '@chakra-ui/react';
+import {
+  TransactionType,
+  TransactionDirection,
+  TransactionStatus,
+  TransferMode,
+  BankChargeType,
+  TRANSACTION_TYPE_GROUPS,
+  getTransactionTypeLabel,
+} from '../types/transaction';
+import { 
+  getValidStatusOptions,
+  type TransactionType as UtilTransactionType,
+  type TransactionStatus as UtilTransactionStatus
+} from '../utils/transactionStatusUtils';
+import type { CreateTransactionForm } from '../types/transaction';
 
 const API_BASE = 'http://localhost:3000';
 
@@ -11,42 +46,61 @@ interface AddTransactionModalProps {
   onSuccess?: () => void;
 }
 
-type TransactionType =
-  | "cheque"
-  | "online"
-  | "cash_deposit"
-  | "internal_transfer"
-  | "bank_charge";
-
 interface Recipient {
   id: string;
   name: string;
-  account_id?: number; // For ACCOUNT-type recipients
+  account_id?: number;
+}
+
+interface Account {
+  id: number;
+  account_name: string;
+  bank_name: string;
 }
 
 type FormValues = {
   transaction_type: TransactionType;
   recipient: string;
   amount: number;
-  date: string;
   description: string;
-  status: string; // <-- add status
+  status: TransactionStatus;
+  to_account_id: string;
+
+  // Cash deposit details
+  deposit_date: string;
+  cash_notes: string;
+
+  // Cheque details
   cheque_number: string;
   cheque_given_date: string;
   cheque_due_date: string;
-  transfer_date: string;
-  to_account_id: string;
-  charge_type: string;
-  charge_note: string;
-};
+  cheque_cleared_date: string;
+  cheque_notes: string;
 
-const TRANSACTION_STATUS_OPTIONS = [
-  { value: "completed", label: "Completed" },
-  { value: "pending", label: "Pending" },
-  { value: "cancelled", label: "Cancelled" },
-  { value: "failed", label: "Failed" },
-  { value: "bounced", label: "Bounced" },
-];
+  // Bank transfer details
+  transfer_date: string;
+  settlement_date: string;
+  transfer_mode: TransferMode;
+  reference_number: string;
+  transfer_notes: string;
+
+  // UPI settlement details
+  upi_settlement_date: string;
+  upi_reference_number: string;
+  batch_number: string;
+  upi_notes: string;
+
+  // Account transfer details
+  account_transfer_date: string;
+  transfer_reference: string;
+  purpose: string;
+  account_transfer_notes: string;
+
+  // Bank charge details
+  charge_type: BankChargeType;
+  charge_date: string;
+  charge_notes: string;
+};
 
 const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   isOpen,
@@ -55,343 +109,686 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   onSuccess,
 }) => {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
-  const [recipientType, setRecipientType] = useState<string>("all");
-  const [transferRecipients, setTransferRecipients] = useState<Recipient[]>([]); // For filtered transfer recipients
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [currentBalance, setCurrentBalance] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const toast = useToast();
 
   const {
     register,
     handleSubmit,
-    watch,
     reset,
-    formState: { errors, isSubmitting },
-    setError,
-    clearErrors,
+    watch,
+    formState: { errors },
   } = useForm<FormValues>({
     defaultValues: {
-      transaction_type: "" as TransactionType,
-      recipient: "",
-      amount: 0,
-      date: "",
-      description: "",
-      status: "", // <-- set default to empty string for status
-      cheque_number: "",
-      cheque_given_date: "",
-      cheque_due_date: "",
-      transfer_date: "",
-      to_account_id: "",
-      charge_type: "",
-      charge_note: "",
+      // No default values - let user select everything
     },
   });
 
-  useEffect(() => {
-    if (isOpen) reset();
-  }, [isOpen, reset]);
+  const watchedTransactionType = watch('transaction_type');
 
-  useEffect(() => {
-    // Fetch recipients from API - use different endpoints based on recipient type filter
-    let url = `${API_BASE}/recipients`;
-    if (recipientType && recipientType !== 'all') {
-      url += `?type=${recipientType}`;
-    } else {
-      // For regular recipient selection, use the endpoint that includes self-account
-      url = `${API_BASE}/recipients/for-transactions/${accountId}`;
+  // Determine transaction direction based on type
+  const getTransactionDirection = (type: TransactionType): TransactionDirection => {
+    const creditTypes = [
+      TransactionType.CASH_DEPOSIT,
+      TransactionType.CHEQUE_RECEIVED,
+      TransactionType.BANK_TRANSFER_IN,
+      TransactionType.UPI_SETTLEMENT,
+    ] as const;
+    return (creditTypes as readonly string[]).includes(type) ? TransactionDirection.CREDIT : TransactionDirection.DEBIT;
+  };
+
+  // Convert TransactionType enum to string for utility function
+  const getValidStatuses = (type: TransactionType): TransactionStatus[] => {
+    // Map enum values to string values for our utility
+    const typeMap: Partial<Record<TransactionType, UtilTransactionType>> = {
+      [TransactionType.CASH_DEPOSIT]: 'cash_deposit',
+      [TransactionType.CHEQUE_RECEIVED]: 'cheque_received',
+      [TransactionType.BANK_TRANSFER_IN]: 'bank_transfer_in',
+      [TransactionType.UPI_SETTLEMENT]: 'upi_settlement',
+      [TransactionType.CHEQUE_GIVEN]: 'cheque_given',
+      [TransactionType.BANK_TRANSFER_OUT]: 'bank_transfer_out',
+      [TransactionType.ACCOUNT_TRANSFER]: 'account_transfer',
+      [TransactionType.BANK_CHARGE]: 'bank_charge',
+      [TransactionType.CHEQUE]: 'cheque',
+      [TransactionType.ONLINE]: 'online',
+      [TransactionType.INTERNAL_TRANSFER]: 'internal_transfer',
+      [TransactionType.OTHER]: 'other',
+    };
+
+    const utilType = typeMap[type];
+    if (!utilType) {
+      console.warn(`Unknown transaction type: ${type}`);
+      return [TransactionStatus.PENDING, TransactionStatus.CANCELLED];
+    }
+
+    const utilStatuses = getValidStatusOptions(utilType);
+    
+    // Map utility status strings back to TransactionStatus enum
+    const statusMap: Partial<Record<UtilTransactionStatus, TransactionStatus>> = {
+      'pending': TransactionStatus.PENDING,
+      'cancelled': TransactionStatus.CANCELLED,
+      'deposited': TransactionStatus.DEPOSITED,
+      'cleared': TransactionStatus.CLEARED,
+      'settled': TransactionStatus.SETTLED,
+      'transferred': TransactionStatus.TRANSFERRED,
+      'debited': TransactionStatus.DEBITED,
+      'bounced': TransactionStatus.BOUNCED,
+      'stopped': TransactionStatus.STOPPED,
+      'failed': TransactionStatus.FAILED,
+      'completed': TransactionStatus.COMPLETED,
+      // Note: 'received' is not in the frontend TransactionStatus enum
+    };
+
+    return utilStatuses.map(status => statusMap[status]).filter(Boolean) as TransactionStatus[];
+  };
+
+  const validateAmount = (value: number): string | true => {
+    if (!value || value <= 0) {
+      return 'Amount must be greater than 0';
     }
     
-    fetch(url)
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setRecipients(data))
-      .catch(() => setRecipients([]));
-
-    // Fetch filtered recipients for internal transfers
-    if (accountId) {
-      fetch(`${API_BASE}/recipients/for-transfer/${accountId}`)
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch transfer recipients");
-          return res.json();
-        })
-        .then((data) => {
-          setTransferRecipients(data);
-        })
-        .catch(() => setTransferRecipients([]));
+    const transactionType = watch('transaction_type');
+    const transactionStatus = watch('status');
+    
+    // For debit transactions (money going out), check balance only if not pending
+    if (
+      transactionType && 
+      (transactionType === TransactionType.CHEQUE_GIVEN ||
+       transactionType === TransactionType.BANK_TRANSFER_OUT ||
+       transactionType === TransactionType.ACCOUNT_TRANSFER ||
+       transactionType === TransactionType.BANK_CHARGE)
+    ) {
+      // Skip balance validation for pending transactions
+      if (transactionStatus === TransactionStatus.PENDING) {
+        return true;
+      }
+      
+      // Apply balance validation for non-pending transactions
+      if (currentBalance !== null && value > currentBalance) {
+        return `Amount cannot exceed current balance (₹${currentBalance.toFixed(2)})`;
+      }
     }
-  }, [accountId, recipientType]);
+    
+    return true;
+  };
 
-  const transaction_type = watch("transaction_type");
-  const dateValue = watch("date");
-  const statusValue = watch("status");
-
-  // Validation: If date is in the past, status cannot be "pending"
   useEffect(() => {
-    if (!dateValue || !statusValue) return;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const txDate = new Date(dateValue);
-    txDate.setHours(0, 0, 0, 0);
-    if (statusValue === "pending" && txDate < today) {
-      setError("status", {
-        type: "manual",
-        message: "Cannot set status as Pending for a past date.",
-      });
-    } else {
-      clearErrors("status");
+    const fetchRecipients = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/recipients/for-transactions/${accountId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setRecipients(data);
+        }
+      } catch (error) {
+        console.error('Error fetching recipients:', error);
+      }
+    };
+
+    const fetchAccounts = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/accounts`);
+        if (response.ok) {
+          const data = await response.json();
+          // Filter out current account for transfers
+          setAccounts(data.filter((acc: Account) => acc.id !== Number(accountId)));
+        }
+      } catch (error) {
+        console.error('Error fetching accounts:', error);
+      }
+    };
+
+    const fetchCurrentBalance = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/accounts/${accountId}/balance`);
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentBalance(data.balance || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching account balance:', error);
+        setCurrentBalance(0);
+      }
+    };
+
+    if (isOpen) {
+      fetchRecipients();
+      fetchAccounts();
+      fetchCurrentBalance();
     }
-  }, [dateValue, statusValue, setError, clearErrors]);
+  }, [isOpen, accountId]);
 
   const onSubmit = async (data: FormValues) => {
-    // transform data to submission format
-    const submissionData: Record<string, unknown> = {
-      transaction_type: data.transaction_type,
-      amount: data.amount,
-      account_id: accountId,
-      transaction_date: data.date, // <-- use transaction_date for backend
-      description: data.description || undefined,
-      status: data.status,
-    };
-    if (data.recipient) {
-      submissionData.recipient_id = data.recipient;
-    }
-    if (data.to_account_id) {
-      submissionData.to_account_id = data.to_account_id;
-    }
-    if (transaction_type === "cheque") {
-      submissionData.cheque_details = {
-        cheque_number: data.cheque_number,
-        cheque_given_date: data.cheque_given_date,
-        cheque_due_date: data.cheque_due_date,
-      };
-    } else if (transaction_type === "online") {
-      submissionData.online_transfer_details = {
-        transfer_date: data.transfer_date,
-      };
-    } else if (transaction_type === "bank_charge") {
-      submissionData.bank_charge_details = {
-        charge_type: data.charge_type,
-        narration: data.charge_note,
-      };
-    }
-    // Remove this line to respect user-selected status:
-    // submissionData.status = "completed";
+    setIsLoading(true);
     try {
+      const transactionDirection = getTransactionDirection(data.transaction_type);
+      
+      const payload: CreateTransactionForm = {
+        transaction_type: data.transaction_type,
+        transaction_direction: transactionDirection,
+        amount: data.amount,
+        account_id: Number(accountId),
+        status: data.status,
+        description: data.description,
+        // transaction_date will be auto-generated on backend as current timestamp
+      };
+
+      // Add recipient if selected
+      if (data.recipient && data.recipient !== '') {
+        payload.recipient_id = Number(data.recipient);
+      }
+
+      // For UPI Settlement, automatically set the account as recipient
+      if (data.transaction_type === TransactionType.UPI_SETTLEMENT) {
+        // Find the account-type recipient that matches the current account
+        const accountRecipient = recipients.find(recipient => 
+          recipient.account_id === Number(accountId)
+        );
+        if (accountRecipient) {
+          payload.recipient_id = Number(accountRecipient.id);
+        }
+      }
+
+      // Add to_account for account transfers
+      if (data.transaction_type === TransactionType.ACCOUNT_TRANSFER && data.to_account_id) {
+        payload.to_account_id = Number(data.to_account_id);
+      }
+
+      // Add type-specific details
+      switch (data.transaction_type) {
+        case TransactionType.CASH_DEPOSIT:
+          payload.cash_deposit_details = {
+            deposit_date: data.deposit_date,
+            notes: data.cash_notes,
+          };
+          break;
+
+        case TransactionType.CHEQUE_RECEIVED:
+        case TransactionType.CHEQUE_GIVEN:
+          payload.cheque_details = {
+            cheque_number: data.cheque_number,
+            cheque_given_date: data.cheque_given_date,
+            cheque_due_date: data.cheque_due_date,
+            cheque_cleared_date: data.cheque_cleared_date,
+            notes: data.cheque_notes,
+          };
+          break;
+
+        case TransactionType.BANK_TRANSFER_IN:
+        case TransactionType.BANK_TRANSFER_OUT:
+          payload.bank_transfer_details = {
+            transfer_date: data.transfer_date,
+            settlement_date: data.settlement_date,
+            transfer_mode: data.transfer_mode,
+            reference_number: data.reference_number,
+            notes: data.transfer_notes,
+          };
+          break;
+
+        case TransactionType.UPI_SETTLEMENT:
+          payload.upi_settlement_details = {
+            settlement_date: data.upi_settlement_date,
+            upi_reference_number: data.upi_reference_number,
+            batch_number: data.batch_number,
+            notes: data.upi_notes,
+          };
+          break;
+
+        case TransactionType.ACCOUNT_TRANSFER:
+          payload.account_transfer_details = {
+            transfer_date: data.account_transfer_date,
+            transfer_reference: data.transfer_reference,
+            purpose: data.purpose,
+            notes: data.account_transfer_notes,
+          };
+          break;
+
+        case TransactionType.BANK_CHARGE:
+          payload.bank_charge_details = {
+            charge_type: data.charge_type,
+            charge_date: data.charge_date,
+            notes: data.charge_notes,
+          };
+          break;
+      }
+
       const response = await fetch(`${API_BASE}/transactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(submissionData),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error("Failed to add transaction");
-      await response.json();
-      if (onSuccess) onSuccess();
-      onClose();
+
+      if (response.ok) {
+        toast({
+          title: "Transaction created successfully",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+        onSuccess?.();
+        onClose();
+        reset();
+      } else {
+        const errorData = await response.json();
+        console.error('Transaction creation failed:', errorData);
+        toast({
+          title: "Failed to create transaction",
+          description: errorData.message || 'Unknown error',
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     } catch (error) {
-      alert("Error adding transaction: " + error);
+      console.error('Error creating transaction:', error);
+      toast({
+        title: "Failed to create transaction",
+        description: "Please try again.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Make sure to always render the modal if isOpen is true
+  const renderTypeSpecificFields = () => {
+    switch (watchedTransactionType) {
+      case TransactionType.CASH_DEPOSIT:
+        return (
+          <Box>
+            <Heading size="md" mb={4}>Cash Deposit Details</Heading>
+            <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.deposit_date}>
+                <FormLabel>Deposit Date</FormLabel>
+                <Input
+                  type="date"
+                  {...register('deposit_date', { required: 'Deposit date is required' })}
+                />
+                <FormErrorMessage>{errors.deposit_date?.message}</FormErrorMessage>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Notes</FormLabel>
+                <Textarea {...register('cash_notes')} rows={3} />
+              </FormControl>
+            </VStack>
+          </Box>
+        );
+
+      case TransactionType.CHEQUE_RECEIVED:
+      case TransactionType.CHEQUE_GIVEN:
+        return (
+          <Box>
+            <Heading size="md" mb={4}>Cheque Details</Heading>
+            <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.cheque_number}>
+                <FormLabel>Cheque Number</FormLabel>
+                <Input
+                  type="text"
+                  {...register('cheque_number', { required: 'Cheque number is required' })}
+                />
+                <FormErrorMessage>{errors.cheque_number?.message}</FormErrorMessage>
+              </FormControl>
+              <HStack spacing={4} width="100%">
+                <FormControl>
+                  <FormLabel>Given Date</FormLabel>
+                  <Input type="date" {...register('cheque_given_date')} />
+                </FormControl>
+                <FormControl isRequired isInvalid={!!errors.cheque_due_date}>
+                  <FormLabel>Due Date</FormLabel>
+                  <Input
+                    type="date"
+                    {...register('cheque_due_date', { required: 'Due date is required' })}
+                  />
+                  <FormErrorMessage>{errors.cheque_due_date?.message}</FormErrorMessage>
+                </FormControl>
+              </HStack>
+              <FormControl isInvalid={!!errors.cheque_cleared_date}>
+                <FormLabel>Cleared Date</FormLabel>
+                <Input
+                  type="date"
+                  {...register('cheque_cleared_date', {
+                    validate: (value) => {
+                      const currentStatus = watch('status');
+                      if (value && currentStatus !== TransactionStatus.CLEARED) {
+                        return 'Cleared date can only be entered when status is "Cleared"';
+                      }
+                      if (!value && currentStatus === TransactionStatus.CLEARED) {
+                        return 'Cleared date is required when status is "Cleared"';
+                      }
+                      return true;
+                    }
+                  })}
+                />
+                <FormErrorMessage>{errors.cheque_cleared_date?.message}</FormErrorMessage>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Notes</FormLabel>
+                <Textarea {...register('cheque_notes')} rows={3} />
+              </FormControl>
+            </VStack>
+          </Box>
+        );
+
+      case TransactionType.BANK_TRANSFER_IN:
+        return (
+          <Box>
+            <Heading size="md" mb={4}>Bank Transfer Details</Heading>
+            <VStack spacing={4}>
+              <HStack spacing={4} width="100%">
+                <FormControl isRequired isInvalid={!!errors.transfer_date}>
+                  <FormLabel>Transfer Date</FormLabel>
+                  <Input
+                    type="date"
+                    {...register('transfer_date', { required: 'Transfer date is required' })}
+                  />
+                  <FormErrorMessage>{errors.transfer_date?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Settlement Date</FormLabel>
+                  <Input type="date" {...register('settlement_date')} />
+                </FormControl>
+              </HStack>
+              <FormControl isRequired isInvalid={!!errors.transfer_mode}>
+                <FormLabel>Transfer Mode</FormLabel>
+                <Select {...register('transfer_mode', { required: 'Transfer mode is required' })} placeholder="--Select--">
+                  <option value={TransferMode.NEFT}>NEFT</option>
+                  <option value={TransferMode.IMPS}>IMPS</option>
+                  <option value={TransferMode.RTGS}>RTGS</option>
+                </Select>
+                <FormErrorMessage>{errors.transfer_mode?.message}</FormErrorMessage>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Reference Number</FormLabel>
+                <Input type="text" {...register('reference_number')} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Notes</FormLabel>
+                <Textarea {...register('transfer_notes')} rows={3} />
+              </FormControl>
+            </VStack>
+          </Box>
+        );
+
+      case TransactionType.BANK_TRANSFER_OUT:
+        return (
+          <Box>
+            <Heading size="md" mb={4}>Bank Transfer Details</Heading>
+            <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.transfer_date}>
+                <FormLabel>Transfer Date</FormLabel>
+                <Input
+                  type="date"
+                  {...register('transfer_date', { required: 'Transfer date is required' })}
+                />
+                <FormErrorMessage>{errors.transfer_date?.message}</FormErrorMessage>
+              </FormControl>
+              <FormControl isRequired isInvalid={!!errors.transfer_mode}>
+                <FormLabel>Transfer Mode</FormLabel>
+                <Select {...register('transfer_mode', { required: 'Transfer mode is required' })} placeholder="--Select--">
+                  <option value={TransferMode.NEFT}>NEFT</option>
+                  <option value={TransferMode.IMPS}>IMPS</option>
+                  <option value={TransferMode.RTGS}>RTGS</option>
+                </Select>
+                <FormErrorMessage>{errors.transfer_mode?.message}</FormErrorMessage>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Reference Number</FormLabel>
+                <Input type="text" {...register('reference_number')} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Notes</FormLabel>
+                <Textarea {...register('transfer_notes')} rows={3} />
+              </FormControl>
+            </VStack>
+          </Box>
+        );
+
+      case TransactionType.UPI_SETTLEMENT:
+        return (
+          <Box>
+            <Heading size="md" mb={4}>UPI Settlement Details</Heading>
+            <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.upi_settlement_date}>
+                <FormLabel>Settlement Date</FormLabel>
+                <Input
+                  type="date"
+                  {...register('upi_settlement_date', { required: 'Settlement date is required' })}
+                />
+                <FormErrorMessage>{errors.upi_settlement_date?.message}</FormErrorMessage>
+              </FormControl>
+              <HStack spacing={4} width="100%">
+                <FormControl>
+                  <FormLabel>UPI Reference Number</FormLabel>
+                  <Input type="text" {...register('upi_reference_number')} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Batch Number</FormLabel>
+                  <Input type="text" {...register('batch_number')} />
+                </FormControl>
+              </HStack>
+              <FormControl>
+                <FormLabel>Notes</FormLabel>
+                <Textarea {...register('upi_notes')} rows={3} />
+              </FormControl>
+            </VStack>
+          </Box>
+        );
+
+      case TransactionType.ACCOUNT_TRANSFER:
+        return (
+          <Box>
+            <Heading size="md" mb={4}>Account Transfer Details</Heading>
+            <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.to_account_id}>
+                <FormLabel>To Account</FormLabel>
+                <Select {...register('to_account_id', { required: 'Destination account is required' })} placeholder="--Select--">
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.account_name} - {account.bank_name}
+                    </option>
+                  ))}
+                </Select>
+                <FormErrorMessage>{errors.to_account_id?.message}</FormErrorMessage>
+              </FormControl>
+              <HStack spacing={4} width="100%">
+                <FormControl isRequired isInvalid={!!errors.account_transfer_date}>
+                  <FormLabel>Transfer Date</FormLabel>
+                  <Input
+                    type="date"
+                    {...register('account_transfer_date', { required: 'Transfer date is required' })}
+                  />
+                  <FormErrorMessage>{errors.account_transfer_date?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Transfer Reference</FormLabel>
+                  <Input type="text" {...register('transfer_reference')} />
+                </FormControl>
+              </HStack>
+              <FormControl>
+                <FormLabel>Purpose</FormLabel>
+                <Input type="text" {...register('purpose')} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Notes</FormLabel>
+                <Textarea {...register('account_transfer_notes')} rows={3} />
+              </FormControl>
+            </VStack>
+          </Box>
+        );
+
+      case TransactionType.BANK_CHARGE:
+        return (
+          <Box>
+            <Heading size="md" mb={4}>Bank Charge Details</Heading>
+            <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.charge_type}>
+                <FormLabel>Charge Type</FormLabel>
+                <Select {...register('charge_type', { required: 'Charge type is required' })} placeholder="--Select--">
+                  <option value={BankChargeType.NEFT_CHARGE}>NEFT Charge</option>
+                  <option value={BankChargeType.IMPS_CHARGE}>IMPS Charge</option>
+                  <option value={BankChargeType.RTGS_CHARGE}>RTGS Charge</option>
+                  <option value={BankChargeType.CHEQUE_RETURN_CHARGE}>Cheque Return Charge</option>
+                  <option value={BankChargeType.ATM_CHARGE}>ATM Charge</option>
+                  <option value={BankChargeType.CASH_DEPOSIT_CHARGE}>Cash Deposit Charge</option>
+                  <option value={BankChargeType.MAINTENANCE_FEE}>Maintenance Fee</option>
+                  <option value={BankChargeType.OTHER}>Other</option>
+                </Select>
+                <FormErrorMessage>{errors.charge_type?.message}</FormErrorMessage>
+              </FormControl>
+              <FormControl isRequired isInvalid={!!errors.charge_date}>
+                <FormLabel>Charge Date</FormLabel>
+                <Input
+                  type="date"
+                  {...register('charge_date', { required: 'Charge date is required' })}
+                />
+                <FormErrorMessage>{errors.charge_date?.message}</FormErrorMessage>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Notes</FormLabel>
+                <Textarea {...register('charge_notes')} rows={3} />
+              </FormControl>
+            </VStack>
+          </Box>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="add-account-modalv2-overlay" role="dialog" aria-modal="true">
-      <form onSubmit={handleSubmit(onSubmit)} className="add-account-modalv2-form common-modal-form">
-        <div className="add-account-modalv2-header common-modal-header">
-          <span className="add-account-modalv2-title common-modal-title">Add Transaction</span>
-          <button
-            className="add-account-modal-close small-close-btn"
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-          >&#10005;</button>
-        </div>
+    <Modal isOpen={isOpen} onClose={onClose} size="xl">
+      <ModalOverlay />
+      <ModalContent maxW="800px">
+        <ModalHeader>Add New Transaction</ModalHeader>
+        <ModalCloseButton />
+        
+        <ModalBody>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <VStack spacing={6}>
+              <HStack spacing={4} width="100%">
+                <FormControl isRequired isInvalid={!!errors.transaction_type}>
+                  <FormLabel>Transaction Type</FormLabel>
+                  <Select {...register('transaction_type', { required: 'Transaction type is required' })} placeholder="--Select--">
+                    {TRANSACTION_TYPE_GROUPS.map((group) => (
+                      <optgroup key={group.direction} label={group.label}>
+                        {group.types.map((type) => (
+                          <option key={type} value={type}>
+                            {getTransactionTypeLabel(type)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </Select>
+                  <FormErrorMessage>{errors.transaction_type?.message}</FormErrorMessage>
+                </FormControl>
 
-        <div className="form-group">
-          <label htmlFor="transaction_type">Transaction Type<span aria-hidden="true">*</span></label>
-          <select id="transaction_type" {...register('transaction_type', { required: true })}>
-            <option value="">-- Select --</option>
-            <option value="cheque">Cheque</option>
-            <option value="online">Online Transfer</option>
-            <option value="cash_deposit">Cash Deposit</option>
-            <option value="internal_transfer">Internal Transfer</option>
-            <option value="bank_charge">Bank Charge</option>
-          </select>
-          {errors.transaction_type && <span className="error">Transaction Type is required.</span>}
-        </div>
+                <FormControl isRequired isInvalid={!!errors.amount}>
+                  <FormLabel>Amount</FormLabel>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    {...register('amount', { 
+                      required: 'Amount is required',
+                      valueAsNumber: true,
+                      min: { value: 0.01, message: 'Amount must be greater than 0' },
+                      validate: (value: number) => {
+                        return validateAmount(value);
+                      }
+                    })}
+                  />
+                  <FormErrorMessage>{errors.amount?.message}</FormErrorMessage>
+                </FormControl>
+              </HStack>
 
-        {["cheque", "online"].includes(transaction_type) && (
-          <div className="form-group">
-            <label htmlFor="recipient-type">Recipient Type</label>
-            <select
-              id="recipient-type"
-              value={recipientType}
-              onChange={e => setRecipientType(e.target.value)}
-              className="common-modal-mb-8"
-            >
-              <option value="">-- Select --</option>
-              <option value="all">All</option>
-              <option value="customer">Customer</option>
-              <option value="supplier">Supplier</option>
-              <option value="utility">Utility</option>
-              <option value="employee">Employee</option>
-              <option value="bank">Bank</option>
-              <option value="other">Other</option>
-            </select>
-            <label htmlFor="recipient">Recipient<span aria-hidden="true">*</span></label>
-            <select
-              id="recipient"
-              {...register("recipient", { required: true })}
-              className="common-modal-flex-1"
-            >
-              <option value="">-- Select --</option>
-              {recipients.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-            {errors.recipient && <span className="error">Recipient is required.</span>}
-          </div>
-        )}
+              <FormControl>
+                <FormLabel>Status</FormLabel>
+                <Select {...register('status')} placeholder="--Select--">
+                  {watchedTransactionType ? getValidStatuses(watchedTransactionType).map((status) => (
+                    <option key={status} value={status}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </option>
+                  )) : (
+                    <option value={TransactionStatus.PENDING}>
+                      {TransactionStatus.PENDING.charAt(0).toUpperCase() + TransactionStatus.PENDING.slice(1)}
+                    </option>
+                  )}
+                </Select>
+              </FormControl>
 
-        <div className="form-group">
-          <label htmlFor="amount">Amount<span aria-hidden="true">*</span></label>
-          <input
-            type="number"
-            id="amount"
-            step="0.01"
-            min="0"
-            {...register("amount", { required: true, valueAsNumber: true, min: 0.01 })}
-          />
-          {errors.amount && <span className="error">Amount is required and must be greater than zero.</span>}
-        </div>
+              {/* Recipient selection for non-account-transfer and non-UPI-settlement transactions */}
+              {watchedTransactionType !== TransactionType.ACCOUNT_TRANSFER && 
+               watchedTransactionType !== TransactionType.UPI_SETTLEMENT && (
+                <FormControl 
+                  isRequired={
+                    watchedTransactionType === TransactionType.CHEQUE_RECEIVED || 
+                    watchedTransactionType === TransactionType.CHEQUE_GIVEN
+                  }
+                  isInvalid={!!errors.recipient}
+                >
+                  <FormLabel>
+                    {(watchedTransactionType === TransactionType.CHEQUE_RECEIVED || 
+                      watchedTransactionType === TransactionType.CHEQUE_GIVEN) 
+                      ? 'Recipient' 
+                      : 'Recipient (Optional)'
+                    }
+                  </FormLabel>
+                  <Select 
+                    {...register('recipient', {
+                      required: (watchedTransactionType === TransactionType.CHEQUE_RECEIVED || 
+                                watchedTransactionType === TransactionType.CHEQUE_GIVEN ||
+                                watchedTransactionType === TransactionType.BANK_TRANSFER_IN ||
+                                watchedTransactionType === TransactionType.BANK_TRANSFER_OUT) 
+                                ? (watchedTransactionType === TransactionType.CHEQUE_RECEIVED || 
+                                   watchedTransactionType === TransactionType.CHEQUE_GIVEN)
+                                  ? 'Recipient is required for cheque transactions'
+                                  : 'Recipient is required for bank transfer transactions'
+                                : false
+                    })} 
+                    placeholder="--Select--"
+                  >
+                    {recipients.map((recipient) => (
+                      <option key={recipient.id} value={recipient.id}>
+                        {recipient.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <FormErrorMessage>{errors.recipient?.message}</FormErrorMessage>
+                </FormControl>
+              )}
 
-        <div className="form-group">
-          <label htmlFor="date">Date<span aria-hidden="true">*</span></label>
-          <input
-            type="date"
-            id="date"
-            {...register("date", { required: true })}
-          />
-          {errors.date && <span className="error">Date is required.</span>}
-        </div>
+              <FormControl>
+                <FormLabel>Description</FormLabel>
+                <Textarea {...register('description')} rows={3} />
+              </FormControl>
 
-        <div className="form-group">
-          <label htmlFor="description">Description (optional)</label>
-          <input
-            type="text"
-            id="description"
-            {...register("description")}
-          />
-        </div>
+              {/* Type-specific fields */}
+              {renderTypeSpecificFields()}
+            </VStack>
+          </form>
+        </ModalBody>
 
-        <div className="form-group">
-          <label htmlFor="status">Status<span aria-hidden="true">*</span></label>
-          <select
-            id="status"
-            {...register("status", { required: true })}
+        <ModalFooter>
+          <Button variant="ghost" mr={3} onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button 
+            colorScheme="blue" 
+            onClick={handleSubmit(onSubmit)} 
+            isLoading={isLoading}
+            loadingText="Creating..."
           >
-            <option value="">-- Select --</option>
-            {TRANSACTION_STATUS_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          {errors.status && <span className="error">{errors.status.message || "Status is required."}</span>}
-        </div>
-
-        {transaction_type === "cheque" && (
-          <>
-            <div className="form-group">
-              <label htmlFor="cheque_number">Cheque Number<span aria-hidden="true">*</span></label>
-              <input
-                type="text"
-                id="cheque_number"
-                {...register("cheque_number", { required: true })}
-              />
-              {errors.cheque_number && <span className="error">Cheque Number is required.</span>}
-            </div>
-            <div className="form-group">
-              <label htmlFor="cheque_given_date">Cheque Given Date<span aria-hidden="true">*</span></label>
-              <input
-                type="date"
-                id="cheque_given_date"
-                {...register("cheque_given_date", { required: true })}
-              />
-              {errors.cheque_given_date && <span className="error">Cheque Given Date is required.</span>}
-            </div>
-            <div className="form-group">
-              <label htmlFor="cheque_due_date">Cheque Due Date<span aria-hidden="true">*</span></label>
-              <input
-                type="date"
-                id="cheque_due_date"
-                {...register("cheque_due_date", { required: true })}
-              />
-              {errors.cheque_due_date && <span className="error">Cheque Due Date is required.</span>}
-            </div>
-          </>
-        )}
-
-        {transaction_type === "online" && (
-          <>
-            <div className="form-group">
-              <label htmlFor="transfer_date">Transfer Date<span aria-hidden="true">*</span></label>
-              <input
-                type="date"
-                id="transfer_date"
-                {...register("transfer_date", { required: true })}
-              />
-              {errors.transfer_date && <span className="error">Transfer Date is required.</span>}
-            </div>
-          </>
-        )}
-
-        {transaction_type === "internal_transfer" && (
-          <div className="form-group">
-            <label htmlFor="to_account_id">To Account<span aria-hidden="true">*</span></label>
-            <select
-              id="to_account_id"
-              {...register("to_account_id", { required: true })}
-            >
-              <option value="">-- Select --</option>
-              {transferRecipients.map((recipient) => (
-                <option key={recipient.id} value={recipient.account_id}>
-                  {recipient.name}
-                </option>
-              ))}
-            </select>
-            {errors.to_account_id && <span className="error">To Account is required.</span>}
-          </div>
-        )}
-
-        {transaction_type === "bank_charge" && (
-          <>
-            <div className="form-group">
-              <label htmlFor="charge_type">Charge Type<span aria-hidden="true">*</span></label>
-              <input
-                type="text"
-                id="charge_type"
-                {...register("charge_type", { required: true })}
-              />
-              {errors.charge_type && <span className="error">Charge Type is required.</span>}
-            </div>
-            <div className="form-group">
-              <label htmlFor="charge_note">Charge Note<span aria-hidden="true">*</span></label>
-              <input
-                type="text"
-                id="charge_note"
-                {...register("charge_note", { required: true })}
-              />
-              {errors.charge_note && <span className="error">Charge Note is required.</span>}
-            </div>
-          </>
-        )}
-
-        {/* Error message */}
-        {errors.status && <div className="add-account-modalv2-error">{typeof errors.status.message === 'string' ? errors.status.message : 'Status is required.'}</div>}
-
-        <div className="add-account-modalv2-actions common-modal-actions">
-          <button type="button" className="secondary-btn" onClick={onClose} disabled={isSubmitting}>Cancel</button>
-          <button type="submit" className="primary-btn" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Add Transaction'}</button>
-        </div>
-      </form>
-    </div>
+            Create Transaction
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 };
 

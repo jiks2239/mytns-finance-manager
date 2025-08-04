@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api from '../api';
 import {
   Modal,
   ModalOverlay,
@@ -58,8 +59,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
       setCheckingTransactions(true);
       setError('');
       
-      fetch(`http://localhost:3000/accounts/${account.id}/transactions`)
-        .then(response => response.json())
+      api.accounts.getTransactions(account.id)
         .then(transactions => {
           setHasTransactions(Array.isArray(transactions) && transactions.length > 0);
         })
@@ -79,17 +79,9 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
     setError('');
     
     try {
-      const response = await fetch(`http://localhost:3000/accounts/${account.id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        onAccountDeleted();
-        onClose();
-      } else {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to delete account' }));
-        setError(errorData.message || 'Failed to delete account. It may have transactions or other dependencies.');
-      }
+      await api.accounts.delete(account.id);
+      onAccountDeleted();
+      onClose();
     } catch (err) {
       console.error('Error deleting account:', err);
       setError('Network error occurred while deleting the account.');
@@ -138,7 +130,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                 {account.opening_balance !== undefined && (
                   <Flex justify="space-between">
                     <Text color="gray.600">Opening Balance:</Text>
-                    <Text fontWeight="semibold">{formatCurrency(account.opening_balance)}</Text>
+                    <Text fontWeight="semibold" whiteSpace="nowrap">{formatCurrency(account.opening_balance)}</Text>
                   </Flex>
                 )}
               </VStack>

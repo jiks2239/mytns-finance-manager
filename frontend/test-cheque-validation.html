@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cheque Transaction Validation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+    </style>
+</head>
+<body>
+    <h1>Cheque Transaction Validation Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Cheque Received WITHOUT Recipient (Should Fail)</h2>
+        <button onclick="testChequeWithoutRecipient()">Test Backend Validation</button>
+        <div id="test1-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Cheque Received WITH Recipient (Should Succeed)</h2>
+        <button onclick="testChequeWithRecipient()">Test Backend Validation</button>
+        <div id="test2-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Missing Cheque Number (Should Fail)</h2>
+        <button onclick="testMissingChequeNumber()">Test Backend Validation</button>
+        <div id="test3-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 4: Missing Cheque Due Date (Should Fail)</h2>
+        <button onclick="testMissingDueDate()">Test Backend Validation</button>
+        <div id="test4-result" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        
+        async function testChequeWithoutRecipient() {
+            try {
+                const response = await fetch(`${API_BASE}/transactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_id: 15,
+                        transaction_type: "cheque_received",
+                        amount: 500.00,
+                        description: "Frontend test - cheque without recipient",
+                        transaction_date: "2025-01-07",
+                        status: "completed",
+                        transaction_direction: "credit",
+                        cheque_details: {
+                            cheque_number: "TEST001",
+                            cheque_due_date: "2025-01-15"
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                const resultDiv = document.getElementById('test1-result');
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<span class="error">❌ FAILED: Transaction was created when it should have been rejected!</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span class="success">✅ SUCCESS: ${result.message}</span>`;
+                }
+            } catch (error) {
+                document.getElementById('test1-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testChequeWithRecipient() {
+            try {
+                const response = await fetch(`${API_BASE}/transactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_id: 15,
+                        recipient_id: 28,
+                        transaction_type: "cheque_received",
+                        amount: 500.00,
+                        description: "Frontend test - cheque with recipient",
+                        transaction_date: "2025-01-07",
+                        status: "completed",
+                        transaction_direction: "credit",
+                        cheque_details: {
+                            cheque_number: "TEST002",
+                            cheque_due_date: "2025-01-15"
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                const resultDiv = document.getElementById('test2-result');
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<span class="success">✅ SUCCESS: Transaction created successfully with ID ${result.id}</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ FAILED: ${result.message}</span>`;
+                }
+            } catch (error) {
+                document.getElementById('test2-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testMissingChequeNumber() {
+            try {
+                const response = await fetch(`${API_BASE}/transactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_id: 15,
+                        recipient_id: 28,
+                        transaction_type: "cheque_received",
+                        amount: 500.00,
+                        description: "Frontend test - missing cheque number",
+                        transaction_date: "2025-01-07",
+                        status: "completed",
+                        transaction_direction: "credit",
+                        cheque_details: {
+                            cheque_due_date: "2025-01-15"
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                const resultDiv = document.getElementById('test3-result');
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<span class="error">❌ FAILED: Transaction was created when it should have been rejected!</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span class="success">✅ SUCCESS: ${result.message}</span>`;
+                }
+            } catch (error) {
+                document.getElementById('test3-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testMissingDueDate() {
+            try {
+                const response = await fetch(`${API_BASE}/transactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_id: 15,
+                        recipient_id: 28,
+                        transaction_type: "cheque_received",
+                        amount: 500.00,
+                        description: "Frontend test - missing due date",
+                        transaction_date: "2025-01-07",
+                        status: "completed",
+                        transaction_direction: "credit",
+                        cheque_details: {
+                            cheque_number: "TEST003"
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                const resultDiv = document.getElementById('test4-result');
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<span class="error">❌ FAILED: Transaction was created when it should have been rejected!</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span class="success">✅ SUCCESS: ${result.message}</span>`;
+                }
+            } catch (error) {
+                document.getElementById('test4-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>

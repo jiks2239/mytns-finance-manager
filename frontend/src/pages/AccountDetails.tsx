@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Box, Flex, Heading, Text, Table, Thead, Tbody, Tr, Th, Td, Button, IconButton, useColorModeValue, Stack, Tooltip, Badge, Avatar
+  Box, Flex, Heading, Text, Table, Thead, Tbody, Tr, Th, Td, Button, IconButton, useColorModeValue, Stack, Tooltip, Badge, Avatar,
+  Stat, StatLabel, StatNumber, StatHelpText, StatArrow, Card, CardBody, Alert, AlertIcon
 } from '@chakra-ui/react';
-import { ArrowBackIcon, AddIcon, ViewIcon, EditIcon, DeleteIcon, InfoOutlineIcon } from '@chakra-ui/icons';
+import { ArrowBackIcon, AddIcon, ViewIcon, EditIcon, DeleteIcon, InfoOutlineIcon, ChevronUpIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import { FaUniversity, FaWallet } from 'react-icons/fa';
 import AddTransactionModal from '../components/AddTransactionModal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import EditAccountModal from '../components/EditAccountModal';
 import DeleteAccountModal from '../components/DeleteAccountModal';
-
-const API_BASE = 'http://localhost:3000';
+import api from '../api';
+import type { Account, Transaction } from '../api';
 
 const ACCOUNT_TYPE_LABELS: { [key: string]: string } = {
   current: 'Current Account',
@@ -22,34 +23,44 @@ const ACCOUNT_TYPE_LABELS: { [key: string]: string } = {
 };
 
 const TRANSACTION_TYPE_LABELS: { [key: string]: string } = {
+  // Legacy types
   cheque: "Cheque",
   online: "Online Transfer",
-  cash_deposit: "Cash Deposit",
   internal_transfer: "Internal Transfer",
   bank_charge: "Bank Charge",
-  // Add more if needed
+  // New transaction types
+  cash_deposit: "Cash Deposit",
+  cheque_received: "Cheque Received",
+  cheque_given: "Cheque Given",
+  bank_transfer_in: "Bank Transfer In",
+  bank_transfer_out: "Bank Transfer Out",
+  upi_settlement: "UPI Settlement",
+  account_transfer: "Account Transfer",
+  other: "Other",
 };
 
-interface Account {
-  id: string;
-  account_name: string;
-  account_number: string;
-  account_type: string;
-  bank_name?: string;
-  opening_balance: number;
-  // Add other fields as needed
-}
-
-interface Transaction {
-  id: string;
-  created_at?: string;
-  transaction_type: string;
-  amount: number;
-  transaction_date?: string;
-  date?: string;
-  status?: string;
-  description?: string;
-}
+const TRANSACTION_STATUS_LABELS: { [key: string]: string } = {
+  // Universal statuses
+  pending: 'Pending',
+  
+  // Credit-specific statuses
+  deposited: 'Deposited',
+  cleared: 'Cleared',
+  transferred: 'Transferred',
+  settled: 'Settled',
+  
+  // Debit-specific statuses
+  debited: 'Debited',
+  
+  // Error/Exception statuses
+  bounced: 'Bounced',
+  stopped: 'Stopped',
+  cancelled: 'Cancelled',
+  failed: 'Failed',
+  
+  // Legacy status
+  completed: 'Completed',
+};
 
 const AccountDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -61,46 +72,28 @@ const AccountDetails: React.FC = () => {
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [editAccountOpen, setEditAccountOpen] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Default to newest first
 
   useEffect(() => {
     if (!id) return;
     async function fetchAccount() {
-      const res = await fetch(`${API_BASE}/accounts/${id}`);
-      if (!res.ok) {
-        setAccount(null);
-        return;
-      }
-      const data: Account = await res.json();
-      setAccount(data);
-    }
-    async function fetchBalance() {
       try {
-        const res = await fetch(`${API_BASE}/accounts/${id}/balance`);
-        if (!res.ok) {
-          setBalance(null);
-          return;
-        }
-        const data = await res.json();
-        setBalance(data.balance);
+        const data = await api.accounts.getById(Number(id));
+        setAccount(data);
+        setBalance(data.current_balance || 0);
       } catch {
-        setBalance(null);
+        setAccount(null);
       }
     }
     async function fetchTransactions() {
       try {
-        const res = await fetch(`${API_BASE}/accounts/${id}/transactions`);
-        if (!res.ok) {
-          setTransactions([]);
-          return;
-        }
-        const data: Transaction[] = await res.json();
+        const data = await api.accounts.getTransactions(Number(id));
         setTransactions(data);
       } catch {
         setTransactions([]);
       }
     }
     fetchAccount();
-    fetchBalance();
     fetchTransactions();
   }, [id, addTxOpen]);
 
@@ -112,6 +105,12 @@ const AccountDetails: React.FC = () => {
   const tableHeaderBg = useColorModeValue('blue.50', 'gray.700');
   const badgeBg = useColorModeValue('blue.100', 'blue.900');
   const badgeColor = useColorModeValue('blue.800', 'blue.100');
+  
+  // Transaction row colors
+  const trHoverBg = useColorModeValue('blue.50', 'gray.700');
+  const negativeColor = useColorModeValue('red.600', 'red.300');
+  const positiveColor = useColorModeValue('green.600', 'green.300');
+  const thHoverBg = useColorModeValue('gray.100', 'gray.600');
 
   if (!id) {
     return (
@@ -134,14 +133,108 @@ const AccountDetails: React.FC = () => {
       ? '-'
       : Number(val).toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }) + '/-';
 
+  // Function to get the most appropriate date for display based on transaction type and status
+  const getTransactionDisplayDate = (tx: Transaction): string | null => {
+    switch (tx.transaction_type) {
+      case 'cash_deposit':
+        // Cash Deposit: Always show deposit date
+        return (tx.cash_deposit_details as { deposit_date?: string })?.deposit_date || null;
+      
+      case 'cheque_received':
+      case 'cheque_given':
+        // Cheque transactions: Show cleared date if cleared, otherwise due date
+        if (tx.status === 'cleared') {
+          return (tx.cheque_details as { cheque_cleared_date?: string })?.cheque_cleared_date || null;
+        } else {
+          // For pending, bounced, cancelled - show due date
+          return (tx.cheque_details as { cheque_due_date?: string })?.cheque_due_date || null;
+        }
+      
+      case 'bank_transfer_in':
+      case 'bank_transfer_out':
+        // Bank Transfer: Show settlement date if settled, otherwise transfer date
+        if (tx.status === 'settled') {
+          return (tx.bank_transfer_details as { settlement_date?: string })?.settlement_date || null;
+        } else {
+          // For pending - show transfer date
+          return (tx.bank_transfer_details as { transfer_date?: string })?.transfer_date || null;
+        }
+      
+      case 'upi_settlement':
+        // UPI Settlement: Always show settlement date
+        return (tx.upi_settlement_details as { settlement_date?: string })?.settlement_date || null;
+      
+      case 'account_transfer':
+        // Account Transfer: Always show transfer date
+        return (tx.account_transfer_details as { transfer_date?: string })?.transfer_date || null;
+      
+      case 'bank_charge':
+        // Bank Charge: Always show charge date
+        return (tx.bank_charge_details as { charge_date?: string })?.charge_date || null;
+      
+      default:
+        // Fallback to transaction_date for other types
+        return tx.transaction_date || null;
+    }
+  };
+
   const displayBalance = balance;
 
+  // Function to sort transactions by date
+  const sortTransactionsByDate = (txs: Transaction[], direction: 'asc' | 'desc'): Transaction[] => {
+    return [...txs].sort((a, b) => {
+      const dateA = getTransactionDisplayDate(a);
+      const dateB = getTransactionDisplayDate(b);
+      
+      // Handle cases where dates might be null
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return direction === 'asc' ? -1 : 1;
+      if (!dateB) return direction === 'asc' ? 1 : -1;
+      
+      const timeA = new Date(dateA).getTime();
+      const timeB = new Date(dateB).getTime();
+      
+      return direction === 'asc' ? timeA - timeB : timeB - timeA;
+    });
+  };
+
+  // Function to toggle sort direction
+  const handleDateSort = () => {
+    const newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortDirection(newDirection);
+  };
+
+  // Get sorted transactions
+  const sortedTransactions = sortTransactionsByDate(transactions, sortDirection);
+
+  // Helper function to refresh both account and transaction data
+  const refreshAccountData = async () => {
+    if (!id) return;
+    try {
+      const [accountData, transactionData, balanceData] = await Promise.all([
+        api.accounts.getById(Number(id)),
+        api.accounts.getTransactions(Number(id)),
+        api.accounts.getBalance(Number(id))
+      ]);
+      setAccount(accountData);
+      setTransactions(transactionData);
+      setBalance(balanceData.balance);
+    } catch (err) {
+      console.error('Failed to refresh account data:', err);
+    }
+  };
+
   // Add delete handler
-  const handleDelete = async (txId: string) => {
+  const handleDelete = async (txId: string | number) => {
     if (!window.confirm('Are you sure you want to delete this transaction?')) return;
-    await fetch(`${API_BASE}/transactions/${txId}`, { method: 'DELETE' });
-    // Refresh transactions after delete
-    setTransactions(transactions => transactions.filter(tx => tx.id !== txId));
+    try {
+      await api.transactions.delete(Number(txId));
+      // Refresh all data after delete to ensure balance is updated
+      await refreshAccountData();
+    } catch (error) {
+      console.error('Failed to delete transaction:', error);
+      alert('Failed to delete transaction. Please try again.');
+    }
   };
 
   // Add account update handler
@@ -149,18 +242,12 @@ const AccountDetails: React.FC = () => {
     // Refresh account data after update
     if (!id) return;
     try {
-      const res = await fetch(`${API_BASE}/accounts/${id}`);
-      if (res.ok) {
-        const data: Account = await res.json();
-        setAccount(data);
-      }
+      const data = await api.accounts.getById(Number(id));
+      setAccount(data);
       
       // Also refresh balance
-      const balanceRes = await fetch(`${API_BASE}/accounts/${id}/balance`);
-      if (balanceRes.ok) {
-        const balanceData = await balanceRes.json();
-        setBalance(balanceData.balance);
-      }
+      const balanceData = await api.accounts.getBalance(Number(id));
+      setBalance(balanceData.balance);
     } catch (err) {
       console.error('Failed to refresh account data:', err);
     }
@@ -220,13 +307,102 @@ const AccountDetails: React.FC = () => {
             )}
           </Box>
           {/* Balance Information */}
-          <Box color="white" textAlign={{ base: 'center', md: 'right' }} minW="200px">
-            <Text fontSize="sm" opacity={0.85} mb={1}>Opening Balance</Text>
-            <Text fontSize="lg" fontWeight="bold" mb={3}>{formatCurrency(account.opening_balance)}</Text>
-            <Text fontSize="sm" opacity={0.85} mb={1}>Current Balance</Text>
-            <Text fontSize="xl" fontWeight="extrabold" color="white">{formatCurrency(displayBalance)}</Text>
+          <Box color="white" textAlign={{ base: 'center', md: 'right' }} minW="250px">
+            {/* Opening Balance */}
+            <Stat mb={4}>
+              <StatLabel fontSize="sm" opacity={0.85} color="whiteAlpha.800">Opening Balance</StatLabel>
+              <StatNumber 
+                fontSize="lg" 
+                fontWeight="bold" 
+                whiteSpace="nowrap"
+                bg="whiteAlpha.200"
+                px={3}
+                py={2}
+                borderRadius="md"
+                border="1px solid"
+                borderColor="whiteAlpha.300"
+              >
+                {formatCurrency(account.opening_balance)}
+              </StatNumber>
+            </Stat>
+
+            {/* Current Balance - Enhanced */}
+            <Stat>
+              <StatLabel fontSize="sm" opacity={0.85} color="whiteAlpha.800" mb={2}>Current Balance</StatLabel>
+              <Card bg="whiteAlpha.300" borderRadius="xl" border="2px solid" borderColor="whiteAlpha.400" boxShadow="xl">
+                <CardBody p={4}>
+                  <StatNumber 
+                    fontSize="2xl" 
+                    fontWeight="black" 
+                    color="white" 
+                    whiteSpace="nowrap"
+                    textAlign="center"
+                    textShadow="0 2px 4px rgba(0,0,0,0.3)"
+                  >
+                    {formatCurrency(displayBalance)}
+                  </StatNumber>
+                  {account.opening_balance !== null && account.opening_balance !== undefined && displayBalance !== null && (
+                    <StatHelpText textAlign="center" mt={2} mb={0}>
+                      {displayBalance > account.opening_balance ? (
+                        <>
+                          <StatArrow type="increase" />
+                          <Text as="span" fontSize="sm" opacity={0.9}>
+                            +{formatCurrency(displayBalance - account.opening_balance)} from opening
+                          </Text>
+                        </>
+                      ) : displayBalance < account.opening_balance ? (
+                        <>
+                          <StatArrow type="decrease" />
+                          <Text as="span" fontSize="sm" opacity={0.9}>
+                            {formatCurrency(displayBalance - account.opening_balance)} from opening
+                          </Text>
+                        </>
+                      ) : (
+                        <Text as="span" fontSize="sm" opacity={0.9}>
+                          No change from opening
+                        </Text>
+                      )}
+                    </StatHelpText>
+                  )}
+                </CardBody>
+              </Card>
+            </Stat>
           </Box>
         </Flex>
+
+        {/* Balance Status Alert */}
+        {displayBalance !== null && (
+          <>
+            {displayBalance < 0 && (
+              <Alert status="error" borderRadius="lg" mb={4} bg="red.50" borderColor="red.200" borderWidth={1}>
+                <AlertIcon />
+                <Box>
+                  <Text fontWeight="bold" color="red.800">Negative Balance Alert</Text>
+                  <Text fontSize="sm" color="red.600">Your account balance is below zero. Consider adding funds.</Text>
+                </Box>
+              </Alert>
+            )}
+            {displayBalance >= 0 && displayBalance < 10000 && (
+              <Alert status="warning" borderRadius="lg" mb={4} bg="orange.50" borderColor="orange.200" borderWidth={1}>
+                <AlertIcon />
+                <Box>
+                  <Text fontWeight="bold" color="orange.800">Low Balance Notice</Text>
+                  <Text fontSize="sm" color="orange.600">Your account balance is running low.</Text>
+                </Box>
+              </Alert>
+            )}
+            {displayBalance >= 100000 && (
+              <Alert status="success" borderRadius="lg" mb={4} bg="green.50" borderColor="green.200" borderWidth={1}>
+                <AlertIcon />
+                <Box>
+                  <Text fontWeight="bold" color="green.800">Healthy Balance</Text>
+                  <Text fontSize="sm" color="green.600">Your account maintains a good balance level.</Text>
+                </Box>
+              </Alert>
+            )}
+          </>
+        )}
+
         {/* Transactions Table */}
         <Flex align="center" justify="space-between" mb={2} gap={2} flexWrap="wrap">
           <Heading as="h3" size="md" color={subHeadingColor} fontWeight="bold">Transactions</Heading>
@@ -234,60 +410,139 @@ const AccountDetails: React.FC = () => {
             Add Transaction
           </Button>
         </Flex>
-        {transactions.length === 0 ? (
+        {sortedTransactions.length === 0 ? (
           <Text color="gray.500" mb={6} textAlign="center">No transactions found.</Text>
         ) : (
-          <Box overflowX="auto" mb={6} borderRadius="lg" borderWidth={1} borderColor={cardBorder} boxShadow="sm">
-            <Table variant="simple" size="md" bg={cardBg}>
+          <Box mb={6} borderRadius="lg" borderWidth={1} borderColor={cardBorder} boxShadow="sm" w="100%">
+            <Table variant="simple" size="sm" bg={cardBg} w="100%">
               <Thead position="sticky" top={0} zIndex={1} bg={tableHeaderBg}>
                 <Tr>
-                  <Th>Created</Th>
-                  <Th>Type</Th>
-                  <Th>Amount</Th>
-                  <Th>Date</Th>
-                  <Th>Status</Th>
-                  <Th>Description</Th>
-                  <Th textAlign="center">Actions</Th>
+                  <Th w={{ base: "15%", md: "13%" }}>Created</Th>
+                  <Th w={{ base: "0%", md: "17%" }} display={{ base: "none", sm: "table-cell" }}>Type</Th>
+                  <Th w={{ base: "15%", md: "13%" }} isNumeric>Amount</Th>
+                  <Th 
+                    w={{ base: "15%", md: "13%" }}
+                    cursor="pointer" 
+                    onClick={handleDateSort}
+                    _hover={{ bg: thHoverBg }}
+                    position="relative"
+                  >
+                    <Flex align="center" gap={1}>
+                      Date
+                      {sortDirection === 'asc' ? (
+                        <ChevronUpIcon boxSize={4} />
+                      ) : (
+                        <ChevronDownIcon boxSize={4} />
+                      )}
+                    </Flex>
+                  </Th>
+                  <Th w={{ base: "0%", md: "20%" }} display={{ base: "none", md: "table-cell" }}>Recipient</Th>
+                  <Th w={{ base: "15%", md: "12%" }}>Status</Th>
+                  <Th 
+                    w={{ base: "20%", md: "12%" }} 
+                    textAlign="center" 
+                    fontSize="sm"
+                    fontWeight="bold"
+                    whiteSpace="nowrap"
+                    px={2}
+                    minW="80px"
+                  >
+                    Actions
+                  </Th>
                 </Tr>
               </Thead>
               <Tbody>
-                {transactions.map((tx) => {
-                  // eslint-disable-next-line react-hooks/rules-of-hooks
-                  const trHoverBg = useColorModeValue('blue.50', 'gray.700');
-                  return (
+                {sortedTransactions.map((tx) => (
                     <Tr key={tx.id} _hover={{ bg: trHoverBg }}>
-                      <Td>
+                      <Td fontSize="sm">
                         {tx.created_at
                           ? new Date(tx.created_at).toLocaleDateString('en-US', {
-                              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+                              month: 'short', day: 'numeric', year: '2-digit',
                             })
                           : '-'}
                       </Td>
-                      <Td>{TRANSACTION_TYPE_LABELS[tx.transaction_type] || tx.transaction_type}</Td>
-                      <Td color={tx.amount < 0 ? 'red.500' : 'green.600'} fontWeight="bold">{formatCurrency(tx.amount)}</Td>
-                      <Td>
-                        {tx.transaction_date
-                          ? new Date(tx.transaction_date).toLocaleDateString('en-US', {
-                              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
-                            })
-                          : tx.date
-                          ? new Date(tx.date).toLocaleDateString('en-US', {
-                              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
-                            })
-                          : '-'}
+                      <Td fontSize="sm" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" display={{ base: "none", sm: "table-cell" }}>
+                        {TRANSACTION_TYPE_LABELS[tx.transaction_type] || tx.transaction_type}
                       </Td>
-                      <Td>{tx.status || '-'}</Td>
-                      <Td>{tx.description || '-'}</Td>
-                      <Td textAlign="center">
-                        <Stack direction="row" spacing={1} justify="center">
-                          <Tooltip label="View"><span><IconButton as={Link} to={`/transactions/${tx.id}`} aria-label="View" icon={<ViewIcon />} size="sm" colorScheme="blue" variant="ghost" /></span></Tooltip>
-                          <Tooltip label="Edit"><span><IconButton aria-label="Edit" icon={<EditIcon />} size="sm" colorScheme="yellow" variant="ghost" onClick={() => setEditTx(tx)} /></span></Tooltip>
-                          <Tooltip label="Delete"><span><IconButton aria-label="Delete" icon={<DeleteIcon />} size="sm" colorScheme="red" variant="ghost" onClick={() => handleDelete(tx.id)} /></span></Tooltip>
+                      <Td 
+                        color={tx.amount < 0 ? negativeColor : positiveColor} 
+                        fontWeight="bold" 
+                        whiteSpace="nowrap"
+                        fontSize="sm"
+                        isNumeric
+                      >
+                        {formatCurrency(tx.amount)}
+                      </Td>
+                      <Td fontSize="sm">
+                        {(() => {
+                          const displayDate = getTransactionDisplayDate(tx);
+                          return displayDate
+                            ? new Date(displayDate).toLocaleDateString('en-US', {
+                                month: 'short', day: 'numeric', year: '2-digit',
+                              })
+                            : '-';
+                        })()}
+                      </Td>
+                      <Td fontSize="sm" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" display={{ base: "none", md: "table-cell" }}>
+                        {tx.recipient ? (
+                          <Text>{tx.recipient.name}</Text>
+                        ) : tx.to_account ? (
+                          <Text color="blue.500">{tx.to_account.account_name}</Text>
+                        ) : (
+                          '-'
+                        )}
+                      </Td>
+                      <Td fontSize="sm" whiteSpace="nowrap">
+                        {TRANSACTION_STATUS_LABELS[tx.status] || tx.status || '-'}
+                      </Td>
+                      <Td textAlign="center" px={2}>
+                        <Stack direction="row" spacing={0} justify="center" align="center">
+                          <Tooltip label="View">
+                            <IconButton 
+                              as={Link} 
+                              to={`/transactions/${tx.id}`} 
+                              aria-label="View" 
+                              icon={<ViewIcon />} 
+                              size="xs" 
+                              colorScheme="blue" 
+                              variant="ghost" 
+                            />
+                          </Tooltip>
+                          {!tx.parent_transaction_id && (
+                            <>
+                              <Tooltip label="Edit">
+                                <IconButton 
+                                  aria-label="Edit" 
+                                  icon={<EditIcon />} 
+                                  size="xs" 
+                                  colorScheme="yellow" 
+                                  variant="ghost" 
+                                  onClick={() => setEditTx(tx)} 
+                                />
+                              </Tooltip>
+                              <Tooltip label="Delete">
+                                <IconButton 
+                                  aria-label="Delete" 
+                                  icon={<DeleteIcon />} 
+                                  size="xs" 
+                                  colorScheme="red" 
+                                  variant="ghost" 
+                                  onClick={() => handleDelete(tx.id)} 
+                                />
+                              </Tooltip>
+                            </>
+                          )}
+                          {tx.parent_transaction_id && (
+                            <Tooltip label="Auto-generated from account transfer">
+                              <Badge colorScheme="gray" fontSize="xs">
+                                Auto
+                              </Badge>
+                            </Tooltip>
+                          )}
                         </Stack>
                       </Td>
                     </Tr>
-                  );
-                })}
+                ))}
               </Tbody>
             </Table>
           </Box>
@@ -305,7 +560,11 @@ const AccountDetails: React.FC = () => {
         isOpen={addTxOpen}
         accountId={id!}
         onClose={() => setAddTxOpen(false)}
-        onSuccess={() => setAddTxOpen(false)}
+        onSuccess={async () => {
+          setAddTxOpen(false);
+          // Refresh account and transaction data after successful transaction creation
+          await refreshAccountData();
+        }}
       />
       {editTx && (
         <EditTransactionModal
@@ -315,10 +574,12 @@ const AccountDetails: React.FC = () => {
             status: editTx.status ?? ''
           }}
           onClose={() => setEditTx(null)}
-          onSuccess={() => {
+          onSuccess={async () => {
             setEditTx(null);
-            // Optionally, refresh transactions here if needed
+            // Refresh account and transaction data after successful transaction update
+            await refreshAccountData();
           }}
+          onDelete={handleDelete}
         />
       )}
       
@@ -337,7 +598,7 @@ const AccountDetails: React.FC = () => {
       <DeleteAccountModal
         isOpen={deleteAccountOpen}
         account={account ? {
-          id: parseInt(account.id),
+          id: account.id,
           account_name: account.account_name,
           account_type: account.account_type,
           opening_balance: account.opening_balance

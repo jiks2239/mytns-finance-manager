@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import api from '../api';
 import {
   Modal,
   ModalOverlay,
@@ -112,12 +113,7 @@ const EditAccountModal: React.FC<EditAccountModalProps> = ({
       updateData.opening_balance = data.opening_balance;
       updateData.notes = data.notes;
 
-      const res = await fetch(`http://localhost:3000/accounts/${account.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
-      });
-      if (!res.ok) throw new Error('Failed to update account');
+      await api.accounts.update(Number(account.id), updateData);
       onAccountUpdated();
       onClose();
     } catch (err: unknown) {

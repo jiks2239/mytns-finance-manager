@@ -3,11 +3,55 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import AddTransactionModal from '../components/AddTransactionModal';
-import EditTransactionModal from '../components/EditTransactionModal'; // <-- import (create if not exists)
-// ...existing code...
+import EditTransactionModal from '../components/EditTransactionModal';
 
-// Import the shared Transaction type
-import type { Transaction } from '../types/transaction';
+// Import the Transaction type from API
+import type { Transaction } from '../api';
+
+// Helper function to get the appropriate date based on transaction type and status
+const getTransactionDate = (tx: Transaction): string | null => {
+  switch (tx.transaction_type) {
+    case 'cash_deposit':
+      // Cash Deposit: Always show deposit date
+      return (tx.cash_deposit_details as { deposit_date?: string })?.deposit_date || null;
+    
+    case 'cheque_received':
+    case 'cheque_given':
+      // Cheque transactions: Show cleared date if cleared, otherwise due date
+      if (tx.status === 'cleared') {
+        return (tx.cheque_details as { cheque_cleared_date?: string })?.cheque_cleared_date || null;
+      } else {
+        // For pending, bounced, cancelled - show due date
+        return (tx.cheque_details as { cheque_due_date?: string })?.cheque_due_date || null;
+      }
+    
+    case 'bank_transfer_in':
+    case 'bank_transfer_out':
+      // Bank Transfer: Show settlement date if settled, otherwise transfer date
+      if (tx.status === 'settled') {
+        return (tx.bank_transfer_details as { settlement_date?: string })?.settlement_date || null;
+      } else {
+        // For pending - show transfer date
+        return (tx.bank_transfer_details as { transfer_date?: string })?.transfer_date || null;
+      }
+    
+    case 'upi_settlement':
+      // UPI Settlement: Always show settlement date
+      return (tx.upi_settlement_details as { settlement_date?: string })?.settlement_date || null;
+    
+    case 'account_transfer':
+      // Account Transfer: Always show transfer date
+      return (tx.account_transfer_details as { transfer_date?: string })?.transfer_date || null;
+    
+    case 'bank_charge':
+      // Bank Charge: Always show charge date
+      return (tx.bank_charge_details as { charge_date?: string })?.charge_date || null;
+    
+    default:
+      // Fallback to transaction_date for other types
+      return tx.transaction_date || null;
+  }
+};
 
 const API_BASE = 'http://localhost:3000';
 
@@ -21,13 +65,26 @@ const TRANSACTION_TYPE_LABELS: { [key: string]: string } = {
 };
 
 const TRANSACTION_STATUS_LABELS: { [key: string]: string } = {
-  completed: 'Completed',
+  // Universal statuses
   pending: 'Pending',
+  
+  // Credit-specific statuses
+  deposited: 'Deposited',
+  cleared: 'Cleared',
+  transferred: 'Transferred',
+  settled: 'Settled',
+  
+  // Debit-specific statuses
+  debited: 'Debited',
+  
+  // Error/Exception statuses
+  bounced: 'Bounced',
+  stopped: 'Stopped',
   cancelled: 'Cancelled',
   failed: 'Failed',
-  bounced: 'Bounced',
-  transferred: 'Transferred',
-  cleared: 'Cleared',
+  
+  // Legacy status
+  completed: 'Completed',
 };
 
 const TransactionsList: React.FC = () => {
@@ -83,7 +140,7 @@ const TransactionsList: React.FC = () => {
 
   // Action handlers (edit/delete/view)
   const handleEdit = (tx: Transaction) => setEditTx(tx);
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string | number) => {
     if (!window.confirm('Are you sure you want to delete this transaction?')) return;
     await axios.delete(`${API_BASE}/transactions/${id}`);
     await handleTransactionSuccess();
@@ -110,7 +167,25 @@ const TransactionsList: React.FC = () => {
   if (isError)    return <div className="error">Error: {error?.message}</div>;
 
   return (
-    <div className="transactions-list-container">
+    <>
+      <style>{`
+        .amount-cell-override {
+          background: transparent !important;
+          background-color: transparent !important;
+          background-image: none !important;
+        }
+        .transactions-table .amount-cell-override {
+          background: transparent !important;
+          background-color: transparent !important;
+          background-image: none !important;
+        }
+        table.transactions-table td.amount-cell-override {
+          background: transparent !important;
+          background-color: transparent !important;
+          background-image: none !important;
+        }
+      `}</style>
+      <div className="transactions-list-container">
       <div className="header">
         <h1 className="transactions-title">
           Transactions for {accountName ? accountName : `Account ${selectedAccountId}`}
@@ -133,6 +208,7 @@ const TransactionsList: React.FC = () => {
           <tr>
             <th>Created</th>
             <th>Type</th>
+            <th>Recipient</th>
             <th>Amount</th>
             <th>Date</th>
             <th>Status</th>
@@ -154,23 +230,46 @@ const TransactionsList: React.FC = () => {
                   : '-'}
               </td>
               <td>{TRANSACTION_TYPE_LABELS[tx.transaction_type] || tx.transaction_type}</td>
-              <td>{formatAmount(tx.amount)}</td>
+              <td>{tx.recipient?.name || '-'}</td>
+              <td 
+                className="amount-cell-override" 
+                style={{ 
+                  whiteSpace: 'nowrap', 
+                  backgroundColor: 'transparent !important', 
+                  background: 'none !important',
+                  backgroundImage: 'none !important',
+                  backgroundSize: 'auto !important',
+                  backgroundPosition: 'initial !important',
+                  backgroundRepeat: 'initial !important',
+                  backgroundAttachment: 'initial !important',
+                  backgroundOrigin: 'initial !important',
+                  backgroundClip: 'initial !important'
+                }}
+              >
+                <span style={{ 
+                  backgroundColor: 'transparent !important', 
+                  background: 'none !important',
+                  color: 'inherit',
+                  display: 'inline',
+                  padding: '0',
+                  margin: '0',
+                  border: 'none'
+                }}>
+                  {formatAmount(tx.amount)}
+                </span>
+              </td>
               <td>
-                {tx.transaction_date
-                  ? new Date(tx.transaction_date).toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })
-                  : tx.date
-                  ? new Date(tx.date).toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })
-                  : '-'}
+                {(() => {
+                  const transactionDate = getTransactionDate(tx);
+                  return transactionDate
+                    ? new Date(transactionDate).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })
+                    : '-';
+                })()}
               </td>
               <td>{TRANSACTION_STATUS_LABELS[tx.status || ''] || tx.status || '-'}</td>
               <td>{tx.description || '-'}</td>
@@ -182,18 +281,30 @@ const TransactionsList: React.FC = () => {
                 >
                   View
                 </Link>
-                <button
-                  className="common-action-btn edit"
-                  onClick={() => handleEdit(tx)}
-                >
-                  Edit
-                </button>
-                <button
-                  className="common-action-btn delete"
-                  onClick={() => handleDelete(tx.id)}
-                >
-                  Delete
-                </button>
+                {!tx.parent_transaction_id && (
+                  <>
+                    <button
+                      className="common-action-btn edit"
+                      onClick={() => handleEdit(tx)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="common-action-btn delete"
+                      onClick={() => handleDelete(tx.id)}
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+                {tx.parent_transaction_id && (
+                  <span 
+                    className="auto-generated-badge"
+                    title="Auto-generated from account transfer"
+                  >
+                    Auto
+                  </span>
+                )}
               </td>
             </tr>
           ))}
@@ -214,9 +325,11 @@ const TransactionsList: React.FC = () => {
             setEditTx(null);
             await handleTransactionSuccess();
           }}
+          onDelete={handleDelete}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 };
 
