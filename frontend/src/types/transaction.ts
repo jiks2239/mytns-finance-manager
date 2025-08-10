@@ -1,19 +1,25 @@
 // Updated transaction types for the new system
 export const TransactionType = {
   // Credit Transaction Types (Money Coming In)
+  DEPOSIT: 'deposit',           // Cash deposit to bank account
+  TRANSFER: 'transfer',         // Incoming bank transfers 
+  SETTLEMENT: 'settlement',     // UPI wallet daily settlements
+  CHEQUE: 'cheque',            // Cheque received (Credit)
+
+  // Debit Transaction Types (Money Going Out)  
+  CHEQUE_GIVEN: 'cheque_given', // Cheque given (Debit) - CRITICAL ADDITION
+  BANK_CHARGE: 'bank_charge',   // Bank charges and fees
+  NEFT: 'neft',                // NEFT transfers
+  IMPS: 'imps',                // IMPS transfers
+  RTGS: 'rtgs',                // RTGS transfers
+  UPI: 'upi',                  // UPI transfers
+
+  // Legacy support (backward compatibility)
   CASH_DEPOSIT: 'cash_deposit',
   CHEQUE_RECEIVED: 'cheque_received',
   BANK_TRANSFER_IN: 'bank_transfer_in',
-  UPI_SETTLEMENT: 'upi_settlement',
-
-  // Debit Transaction Types (Money Going Out)
-  CHEQUE_GIVEN: 'cheque_given',
   BANK_TRANSFER_OUT: 'bank_transfer_out',
   ACCOUNT_TRANSFER: 'account_transfer',
-  BANK_CHARGE: 'bank_charge',
-
-  // Legacy support
-  CHEQUE: 'cheque',
   ONLINE: 'online',
   INTERNAL_TRANSFER: 'internal_transfer',
   OTHER: 'other',
@@ -32,20 +38,22 @@ export const TransactionStatus = {
   // Universal statuses
   PENDING: 'pending',
 
-  // Credit-specific statuses
+  // Credit-specific statuses (Green - Money In)
   DEPOSITED: 'deposited',
+  RECEIVED: 'received',        // New status for received transfers
   CLEARED: 'cleared',
   TRANSFERRED: 'transferred',
   SETTLED: 'settled',
 
-  // Debit-specific statuses
+  // Debit-specific statuses (Red - Money Out)
   DEBITED: 'debited',
+  SUBMITTED: 'submitted',      // New status for submitted transactions
 
   // Error/Exception statuses
   BOUNCED: 'bounced',
-  STOPPED: 'stopped',
   CANCELLED: 'cancelled',
   FAILED: 'failed',
+  STOPPED: 'stopped',          // New status for stopped cheques
 
   // Legacy status
   COMPLETED: 'completed',
@@ -57,6 +65,7 @@ export const TransferMode = {
   NEFT: 'neft',
   IMPS: 'imps',
   RTGS: 'rtgs',
+  UPI: 'upi',          // CRITICAL ADDITION - UPI was missing
 } as const;
 
 export type TransferMode = typeof TransferMode[keyof typeof TransferMode];
@@ -82,9 +91,10 @@ export interface CashDepositDetails {
 
 export interface ChequeTransactionDetails {
   cheque_number: string;
-  cheque_given_date?: string;
+  cheque_issue_date?: string;      // Renamed from cheque_given_date
   cheque_due_date: string;
   cheque_cleared_date?: string;
+  cheque_bounce_charge?: number;   // New field for bounce charges
   notes?: string;
 }
 
@@ -112,7 +122,7 @@ export interface AccountTransferDetails {
 
 export interface BankChargeDetails {
   charge_type: BankChargeType;
-  charge_date: string;
+  debit_date: string;           // Renamed from charge_date
   notes?: string;
 }
 
@@ -220,20 +230,22 @@ export const TRANSACTION_TYPE_GROUPS: TransactionTypeGroup[] = [
     label: 'Credit Transactions (Money In)',
     direction: TransactionDirection.CREDIT,
     types: [
-      TransactionType.CASH_DEPOSIT,
-      TransactionType.CHEQUE_RECEIVED,
-      TransactionType.BANK_TRANSFER_IN,
-      TransactionType.UPI_SETTLEMENT,
+      TransactionType.DEPOSIT,
+      TransactionType.TRANSFER,
+      TransactionType.SETTLEMENT,
+      TransactionType.CHEQUE,
     ],
   },
   {
     label: 'Debit Transactions (Money Out)',
     direction: TransactionDirection.DEBIT,
     types: [
-      TransactionType.CHEQUE_GIVEN,
-      TransactionType.BANK_TRANSFER_OUT,
-      TransactionType.ACCOUNT_TRANSFER,
+      TransactionType.CHEQUE_GIVEN,    // CRITICAL ADDITION - Cheque Debit
       TransactionType.BANK_CHARGE,
+      TransactionType.NEFT,
+      TransactionType.IMPS,
+      TransactionType.RTGS,
+      TransactionType.UPI,
     ],
   },
 ];
@@ -241,15 +253,24 @@ export const TRANSACTION_TYPE_GROUPS: TransactionTypeGroup[] = [
 // Helper function to get transaction type label
 export const getTransactionTypeLabel = (type: TransactionType): string => {
   const labels: Record<TransactionType, string> = {
+    // New transaction types
+    [TransactionType.DEPOSIT]: 'Deposit',
+    [TransactionType.TRANSFER]: 'Transfer',
+    [TransactionType.SETTLEMENT]: 'Settlement',
+    [TransactionType.CHEQUE]: 'Cheque',              // Credit Cheque
+    [TransactionType.CHEQUE_GIVEN]: 'Cheque',        // Debit Cheque - CRITICAL ADDITION
+    [TransactionType.BANK_CHARGE]: 'Bank Charge',
+    [TransactionType.NEFT]: 'NEFT',
+    [TransactionType.IMPS]: 'IMPS',
+    [TransactionType.RTGS]: 'RTGS',
+    [TransactionType.UPI]: 'UPI',
+    
+    // Legacy transaction types (backward compatibility)
     [TransactionType.CASH_DEPOSIT]: 'Cash Deposit',
     [TransactionType.CHEQUE_RECEIVED]: 'Cheque Received',
     [TransactionType.BANK_TRANSFER_IN]: 'Bank Transfer In',
-    [TransactionType.UPI_SETTLEMENT]: 'UPI Settlement',
-    [TransactionType.CHEQUE_GIVEN]: 'Cheque Given',
     [TransactionType.BANK_TRANSFER_OUT]: 'Bank Transfer Out',
     [TransactionType.ACCOUNT_TRANSFER]: 'Account Transfer',
-    [TransactionType.BANK_CHARGE]: 'Bank Charge',
-    [TransactionType.CHEQUE]: 'Cheque (Legacy)',
     [TransactionType.ONLINE]: 'Online Transfer (Legacy)',
     [TransactionType.INTERNAL_TRANSFER]: 'Internal Transfer (Legacy)',
     [TransactionType.OTHER]: 'Other',
@@ -261,15 +282,25 @@ export const getTransactionTypeLabel = (type: TransactionType): string => {
 export const getStatusLabel = (status: TransactionStatus): { label: string; color: string } => {
   const statusConfig: Record<TransactionStatus, { label: string; color: string }> = {
     [TransactionStatus.PENDING]: { label: 'Pending', color: 'orange' },
+    
+    // Credit-specific statuses (Green - Money In)
     [TransactionStatus.DEPOSITED]: { label: 'Deposited', color: 'green' },
+    [TransactionStatus.RECEIVED]: { label: 'Received', color: 'green' },
     [TransactionStatus.CLEARED]: { label: 'Cleared', color: 'green' },
     [TransactionStatus.TRANSFERRED]: { label: 'Transferred', color: 'green' },
     [TransactionStatus.SETTLED]: { label: 'Settled', color: 'green' },
+    
+    // Debit-specific statuses (Red - Money Out)
     [TransactionStatus.DEBITED]: { label: 'Debited', color: 'blue' },
+    [TransactionStatus.SUBMITTED]: { label: 'Submitted', color: 'blue' },
+    
+    // Error/Exception statuses
     [TransactionStatus.BOUNCED]: { label: 'Bounced', color: 'red' },
-    [TransactionStatus.STOPPED]: { label: 'Stopped', color: 'red' },
     [TransactionStatus.CANCELLED]: { label: 'Cancelled', color: 'gray' },
     [TransactionStatus.FAILED]: { label: 'Failed', color: 'red' },
+    [TransactionStatus.STOPPED]: { label: 'Stopped', color: 'red' },
+    
+    // Legacy status
     [TransactionStatus.COMPLETED]: { label: 'Completed', color: 'green' },
   };
   return statusConfig[status] || { label: status, color: 'gray' };

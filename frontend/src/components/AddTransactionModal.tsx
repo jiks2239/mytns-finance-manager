@@ -66,38 +66,50 @@ type FormValues = {
   status: TransactionStatus;
   to_account_id: string;
 
-  // Cash deposit details
+  // DEPOSIT (Credit Transaction) - Cash deposit to bank account
   deposit_date: string;
-  cash_notes: string;
 
-  // Cheque details
-  cheque_number: string;
-  cheque_given_date: string;
-  cheque_due_date: string;
-  cheque_cleared_date: string;
-  cheque_notes: string;
-
-  // Bank transfer details
+  // TRANSFER (Credit Transaction) - Incoming bank transfers
   transfer_date: string;
-  settlement_date: string;
   transfer_mode: TransferMode;
+
+  // SETTLEMENT (Credit Transaction) - UPI wallet daily settlements  
+  settlement_date: string;
+
+  // CHEQUE (Credit Transaction) - Cheque received
+  cheque_number: string;
+  cheque_issue_date: string;        // Date of Cheque Issue (Required)
+  cheque_due_date: string;          // Date of Cheque Due (Required)
+  cheque_submitted_date: string;    // Date of Cheque Submitted
+  cheque_cleared_date: string;      // Date of Cheque Cleared
+  cheque_bounce_charge: number;     // Cheque Bounce Charge
+
+  // CHEQUE_GIVEN (Debit Transaction) - Cheque given
+  cheque_given_issue_date: string;  // Date of Cheque Issue (Required)
+  cheque_given_due_date: string;    // Date of Cheque Due (Required)  
+  cheque_given_cleared_date: string;// Date of Cheque Cleared
+
+  // BANK_CHARGE (Debit Transaction) - Bank charges and fees
+  charge_type: BankChargeType;
+  debit_date: string;               // Date of Debit (Required)
+
+  // NEFT, IMPS, RTGS, UPI (Debit Transactions) - Fund transfers
+  debit_transfer_date: string;      // Date of Transfer (Required)
+
+  // Legacy fields for backward compatibility
+  cash_notes: string;
+  cheque_given_date: string;
+  settlement_date_legacy: string;
   reference_number: string;
   transfer_notes: string;
-
-  // UPI settlement details
   upi_settlement_date: string;
   upi_reference_number: string;
   batch_number: string;
   upi_notes: string;
-
-  // Account transfer details
   account_transfer_date: string;
   transfer_reference: string;
   purpose: string;
   account_transfer_notes: string;
-
-  // Bank charge details
-  charge_type: BankChargeType;
   charge_date: string;
   charge_notes: string;
 };
@@ -131,10 +143,14 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   // Determine transaction direction based on type
   const getTransactionDirection = (type: TransactionType): TransactionDirection => {
     const creditTypes = [
+      TransactionType.DEPOSIT,          // NEW: Cash deposit to bank account
+      TransactionType.TRANSFER,         // NEW: Incoming bank transfers
+      TransactionType.SETTLEMENT,       // NEW: UPI wallet daily settlements  
+      TransactionType.CHEQUE,           // NEW: Cheque received (Credit)
+      // Legacy credit types
       TransactionType.CASH_DEPOSIT,
       TransactionType.CHEQUE_RECEIVED,
       TransactionType.BANK_TRANSFER_IN,
-      TransactionType.UPI_SETTLEMENT,
     ] as const;
     return (creditTypes as readonly string[]).includes(type) ? TransactionDirection.CREDIT : TransactionDirection.DEBIT;
   };
@@ -143,15 +159,23 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const getValidStatuses = (type: TransactionType): TransactionStatus[] => {
     // Map enum values to string values for our utility
     const typeMap: Partial<Record<TransactionType, UtilTransactionType>> = {
+      // New transaction types
+      [TransactionType.DEPOSIT]: 'cash_deposit',
+      [TransactionType.TRANSFER]: 'bank_transfer_in', 
+      [TransactionType.SETTLEMENT]: 'upi_settlement',
+      [TransactionType.CHEQUE]: 'cheque_received',
+      [TransactionType.CHEQUE_GIVEN]: 'cheque_given',
+      [TransactionType.BANK_CHARGE]: 'bank_charge',
+      [TransactionType.NEFT]: 'bank_transfer_out',
+      [TransactionType.IMPS]: 'bank_transfer_out',
+      [TransactionType.RTGS]: 'bank_transfer_out',
+      [TransactionType.UPI]: 'online',
+      // Legacy transaction types
       [TransactionType.CASH_DEPOSIT]: 'cash_deposit',
       [TransactionType.CHEQUE_RECEIVED]: 'cheque_received',
       [TransactionType.BANK_TRANSFER_IN]: 'bank_transfer_in',
-      [TransactionType.UPI_SETTLEMENT]: 'upi_settlement',
-      [TransactionType.CHEQUE_GIVEN]: 'cheque_given',
       [TransactionType.BANK_TRANSFER_OUT]: 'bank_transfer_out',
       [TransactionType.ACCOUNT_TRANSFER]: 'account_transfer',
-      [TransactionType.BANK_CHARGE]: 'bank_charge',
-      [TransactionType.CHEQUE]: 'cheque',
       [TransactionType.ONLINE]: 'online',
       [TransactionType.INTERNAL_TRANSFER]: 'internal_transfer',
       [TransactionType.OTHER]: 'other',
@@ -175,7 +199,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       'transferred': TransactionStatus.TRANSFERRED,
       'debited': TransactionStatus.DEBITED,
       'bounced': TransactionStatus.BOUNCED,
-      'stopped': TransactionStatus.STOPPED,
       'failed': TransactionStatus.FAILED,
       'completed': TransactionStatus.COMPLETED,
       // Note: 'received' is not in the frontend TransactionStatus enum
@@ -280,8 +303,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         payload.recipient_id = Number(data.recipient);
       }
 
-      // For UPI Settlement, automatically set the account as recipient
-      if (data.transaction_type === TransactionType.UPI_SETTLEMENT) {
+      // For Settlement, automatically set the account as recipient
+      if (data.transaction_type === TransactionType.SETTLEMENT) {
         // Find the account-type recipient that matches the current account
         const accountRecipient = recipients.find(recipient => 
           recipient.account_id === Number(accountId)
@@ -309,10 +332,10 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         case TransactionType.CHEQUE_GIVEN:
           payload.cheque_details = {
             cheque_number: data.cheque_number,
-            cheque_given_date: data.cheque_given_date,
+            cheque_issue_date: data.cheque_issue_date,
             cheque_due_date: data.cheque_due_date,
             cheque_cleared_date: data.cheque_cleared_date,
-            notes: data.cheque_notes,
+            notes: data.description,
           };
           break;
 
@@ -327,9 +350,9 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           };
           break;
 
-        case TransactionType.UPI_SETTLEMENT:
+        case TransactionType.SETTLEMENT:
           payload.upi_settlement_details = {
-            settlement_date: data.upi_settlement_date,
+            settlement_date: data.settlement_date,
             upi_reference_number: data.upi_reference_number,
             batch_number: data.batch_number,
             notes: data.upi_notes,
@@ -348,8 +371,8 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         case TransactionType.BANK_CHARGE:
           payload.bank_charge_details = {
             charge_type: data.charge_type,
-            charge_date: data.charge_date,
-            notes: data.charge_notes,
+            debit_date: data.debit_date,
+            notes: data.description,
           };
           break;
       }
@@ -397,32 +420,90 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
   const renderTypeSpecificFields = () => {
     switch (watchedTransactionType) {
+      // ===============================
+      // DEPOSIT (Credit Transaction)
+      // ===============================
+      case TransactionType.DEPOSIT:
       case TransactionType.CASH_DEPOSIT:
         return (
           <Box>
             <Heading size="md" mb={4}>Cash Deposit Details</Heading>
             <VStack spacing={4}>
               <FormControl isRequired isInvalid={!!errors.deposit_date}>
-                <FormLabel>Deposit Date</FormLabel>
+                <FormLabel>Date of Deposit</FormLabel>
                 <Input
                   type="date"
-                  {...register('deposit_date', { required: 'Deposit date is required' })}
+                  {...register('deposit_date', { required: 'Date of deposit is required' })}
                 />
                 <FormErrorMessage>{errors.deposit_date?.message}</FormErrorMessage>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('cash_notes')} rows={3} />
               </FormControl>
             </VStack>
           </Box>
         );
 
-      case TransactionType.CHEQUE_RECEIVED:
-      case TransactionType.CHEQUE_GIVEN:
+      // ===============================
+      // TRANSFER (Credit Transaction)
+      // ===============================
+      case TransactionType.TRANSFER:
+      case TransactionType.BANK_TRANSFER_IN:
         return (
           <Box>
-            <Heading size="md" mb={4}>Cheque Details</Heading>
+            <Heading size="md" mb={4}>Incoming Transfer Details</Heading>
+            <VStack spacing={4}>
+              <HStack spacing={4} width="100%">
+                <FormControl isRequired isInvalid={!!errors.transfer_date}>
+                  <FormLabel>Date of Transfer</FormLabel>
+                  <Input
+                    type="date"
+                    {...register('transfer_date', { required: 'Date of transfer is required' })}
+                  />
+                  <FormErrorMessage>{errors.transfer_date?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl isRequired isInvalid={!!errors.transfer_mode}>
+                  <FormLabel>Transfer Mode</FormLabel>
+                  <Select
+                    {...register('transfer_mode', { required: 'Transfer mode is required' })}
+                    placeholder="Select transfer mode"
+                  >
+                    <option value={TransferMode.NEFT}>NEFT</option>
+                    <option value={TransferMode.IMPS}>IMPS</option>
+                    <option value={TransferMode.RTGS}>RTGS</option>
+                    <option value={TransferMode.UPI}>UPI</option>
+                  </Select>
+                  <FormErrorMessage>{errors.transfer_mode?.message}</FormErrorMessage>
+                </FormControl>
+              </HStack>
+            </VStack>
+          </Box>
+        );
+
+      // ===============================
+      // SETTLEMENT (Credit Transaction)
+      // ===============================
+      case TransactionType.SETTLEMENT:
+        return (
+          <Box>
+            <Heading size="md" mb={4}>UPI Settlement Details</Heading>
+            <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.settlement_date}>
+                <FormLabel>Date of Settlement</FormLabel>
+                <Input
+                  type="date"
+                  {...register('settlement_date', { required: 'Date of settlement is required' })}
+                />
+                <FormErrorMessage>{errors.settlement_date?.message}</FormErrorMessage>
+              </FormControl>
+            </VStack>
+          </Box>
+        );
+
+      // ===============================
+      // CHEQUE (Credit Transaction) - Cheque Received
+      // ===============================
+      case TransactionType.CHEQUE:
+        return (
+          <Box>
+            <Heading size="md" mb={4}>Cheque Received Details</Heading>
             <VStack spacing={4}>
               <FormControl isRequired isInvalid={!!errors.cheque_number}>
                 <FormLabel>Cheque Number</FormLabel>
@@ -433,24 +514,110 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                 <FormErrorMessage>{errors.cheque_number?.message}</FormErrorMessage>
               </FormControl>
               <HStack spacing={4} width="100%">
-                <FormControl>
-                  <FormLabel>Given Date</FormLabel>
-                  <Input type="date" {...register('cheque_given_date')} />
+                <FormControl isRequired isInvalid={!!errors.cheque_issue_date}>
+                  <FormLabel>Date of Cheque Issue</FormLabel>
+                  <Input 
+                    type="date" 
+                    {...register('cheque_issue_date', { required: 'Date of cheque issue is required' })} 
+                  />
+                  <FormErrorMessage>{errors.cheque_issue_date?.message}</FormErrorMessage>
                 </FormControl>
                 <FormControl isRequired isInvalid={!!errors.cheque_due_date}>
-                  <FormLabel>Due Date</FormLabel>
+                  <FormLabel>Date of Cheque Due</FormLabel>
                   <Input
                     type="date"
-                    {...register('cheque_due_date', { required: 'Due date is required' })}
+                    {...register('cheque_due_date', { required: 'Date of cheque due is required' })}
                   />
                   <FormErrorMessage>{errors.cheque_due_date?.message}</FormErrorMessage>
                 </FormControl>
               </HStack>
-              <FormControl isInvalid={!!errors.cheque_cleared_date}>
-                <FormLabel>Cleared Date</FormLabel>
+              <HStack spacing={4} width="100%">
+                <FormControl isInvalid={!!errors.cheque_submitted_date}>
+                  <FormLabel>Date of Cheque Submitted</FormLabel>
+                  <Input type="date" {...register('cheque_submitted_date')} />
+                  <FormErrorMessage>{errors.cheque_submitted_date?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl isInvalid={!!errors.cheque_cleared_date}>
+                  <FormLabel>Date of Cheque Cleared</FormLabel>
+                  <Input
+                    type="date"
+                    {...register('cheque_cleared_date', {
+                      validate: (value) => {
+                        const currentStatus = watch('status');
+                        if (value && currentStatus !== TransactionStatus.CLEARED) {
+                          return 'Cleared date can only be entered when status is "Cleared"';
+                        }
+                        if (!value && currentStatus === TransactionStatus.CLEARED) {
+                          return 'Cleared date is required when status is "Cleared"';
+                        }
+                        return true;
+                      }
+                    })}
+                  />
+                  <FormErrorMessage>{errors.cheque_cleared_date?.message}</FormErrorMessage>
+                </FormControl>
+              </HStack>
+              <FormControl isInvalid={!!errors.cheque_bounce_charge}>
+                <FormLabel>Cheque Bounce Charge</FormLabel>
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...register('cheque_bounce_charge', {
+                    valueAsNumber: true,
+                    validate: (value) => {
+                      const currentStatus = watch('status');
+                      if (value && currentStatus !== TransactionStatus.BOUNCED) {
+                        return 'Bounce charge can only be entered when status is "Bounced"';
+                      }
+                      return true;
+                    }
+                  })}
+                />
+                <FormErrorMessage>{errors.cheque_bounce_charge?.message}</FormErrorMessage>
+              </FormControl>
+            </VStack>
+          </Box>
+        );
+
+      // ===============================
+      // CHEQUE_GIVEN (Debit Transaction) - Cheque Given
+      // ===============================
+      case TransactionType.CHEQUE_GIVEN:
+        return (
+          <Box>
+            <Heading size="md" mb={4}>Cheque Given Details</Heading>
+            <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.cheque_number}>
+                <FormLabel>Cheque Number</FormLabel>
+                <Input
+                  type="text"
+                  {...register('cheque_number', { required: 'Cheque number is required' })}
+                />
+                <FormErrorMessage>{errors.cheque_number?.message}</FormErrorMessage>
+              </FormControl>
+              <HStack spacing={4} width="100%">
+                <FormControl isRequired isInvalid={!!errors.cheque_given_issue_date}>
+                  <FormLabel>Date of Cheque Issue</FormLabel>
+                  <Input 
+                    type="date" 
+                    {...register('cheque_given_issue_date', { required: 'Date of cheque issue is required' })} 
+                  />
+                  <FormErrorMessage>{errors.cheque_given_issue_date?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl isRequired isInvalid={!!errors.cheque_given_due_date}>
+                  <FormLabel>Date of Cheque Due</FormLabel>
+                  <Input
+                    type="date"
+                    {...register('cheque_given_due_date', { required: 'Date of cheque due is required' })}
+                  />
+                  <FormErrorMessage>{errors.cheque_given_due_date?.message}</FormErrorMessage>
+                </FormControl>
+              </HStack>
+              <FormControl isInvalid={!!errors.cheque_given_cleared_date}>
+                <FormLabel>Date of Cheque Cleared</FormLabel>
                 <Input
                   type="date"
-                  {...register('cheque_cleared_date', {
+                  {...register('cheque_given_cleared_date', {
                     validate: (value) => {
                       const currentStatus = watch('status');
                       if (value && currentStatus !== TransactionStatus.CLEARED) {
@@ -463,52 +630,73 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                     }
                   })}
                 />
-                <FormErrorMessage>{errors.cheque_cleared_date?.message}</FormErrorMessage>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('cheque_notes')} rows={3} />
+                <FormErrorMessage>{errors.cheque_given_cleared_date?.message}</FormErrorMessage>
               </FormControl>
             </VStack>
           </Box>
         );
 
-      case TransactionType.BANK_TRANSFER_IN:
+      // ===============================
+      // NEFT, IMPS, RTGS, UPI (Debit Transactions)
+      // ===============================
+      case TransactionType.NEFT:
+      case TransactionType.IMPS:
+      case TransactionType.RTGS:
+      case TransactionType.UPI:
         return (
           <Box>
-            <Heading size="md" mb={4}>Bank Transfer Details</Heading>
+            <Heading size="md" mb={4}>
+              {watchedTransactionType.toUpperCase()} Transfer Details
+            </Heading>
             <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.debit_transfer_date}>
+                <FormLabel>Date of Transfer</FormLabel>
+                <Input
+                  type="date"
+                  {...register('debit_transfer_date', { required: 'Date of transfer is required' })}
+                />
+                <FormErrorMessage>{errors.debit_transfer_date?.message}</FormErrorMessage>
+              </FormControl>
+            </VStack>
+          </Box>
+        );
+
+      // ===============================
+      // Legacy cases for backward compatibility
+      // ===============================
+
+      case TransactionType.CHEQUE_RECEIVED:
+        // Use same form fields as CHEQUE (credit)
+        return (
+          <Box>
+            <Heading size="md" mb={4}>Cheque Received Details</Heading>
+            <VStack spacing={4}>
+              <FormControl isRequired isInvalid={!!errors.cheque_number}>
+                <FormLabel>Cheque Number</FormLabel>
+                <Input
+                  type="text"
+                  {...register('cheque_number', { required: 'Cheque number is required' })}
+                />
+                <FormErrorMessage>{errors.cheque_number?.message}</FormErrorMessage>
+              </FormControl>
               <HStack spacing={4} width="100%">
-                <FormControl isRequired isInvalid={!!errors.transfer_date}>
-                  <FormLabel>Transfer Date</FormLabel>
+                <FormControl isRequired isInvalid={!!errors.cheque_issue_date}>
+                  <FormLabel>Date of Cheque Issue</FormLabel>
+                  <Input 
+                    type="date" 
+                    {...register('cheque_issue_date', { required: 'Date of cheque issue is required' })} 
+                  />
+                  <FormErrorMessage>{errors.cheque_issue_date?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl isRequired isInvalid={!!errors.cheque_due_date}>
+                  <FormLabel>Date of Cheque Due</FormLabel>
                   <Input
                     type="date"
-                    {...register('transfer_date', { required: 'Transfer date is required' })}
+                    {...register('cheque_due_date', { required: 'Date of cheque due is required' })}
                   />
-                  <FormErrorMessage>{errors.transfer_date?.message}</FormErrorMessage>
-                </FormControl>
-                <FormControl>
-                  <FormLabel>Settlement Date</FormLabel>
-                  <Input type="date" {...register('settlement_date')} />
+                  <FormErrorMessage>{errors.cheque_due_date?.message}</FormErrorMessage>
                 </FormControl>
               </HStack>
-              <FormControl isRequired isInvalid={!!errors.transfer_mode}>
-                <FormLabel>Transfer Mode</FormLabel>
-                <Select {...register('transfer_mode', { required: 'Transfer mode is required' })} placeholder="--Select--">
-                  <option value={TransferMode.NEFT}>NEFT</option>
-                  <option value={TransferMode.IMPS}>IMPS</option>
-                  <option value={TransferMode.RTGS}>RTGS</option>
-                </Select>
-                <FormErrorMessage>{errors.transfer_mode?.message}</FormErrorMessage>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Reference Number</FormLabel>
-                <Input type="text" {...register('reference_number')} />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('transfer_notes')} rows={3} />
-              </FormControl>
             </VStack>
           </Box>
         );
@@ -542,37 +730,6 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               <FormControl>
                 <FormLabel>Notes</FormLabel>
                 <Textarea {...register('transfer_notes')} rows={3} />
-              </FormControl>
-            </VStack>
-          </Box>
-        );
-
-      case TransactionType.UPI_SETTLEMENT:
-        return (
-          <Box>
-            <Heading size="md" mb={4}>UPI Settlement Details</Heading>
-            <VStack spacing={4}>
-              <FormControl isRequired isInvalid={!!errors.upi_settlement_date}>
-                <FormLabel>Settlement Date</FormLabel>
-                <Input
-                  type="date"
-                  {...register('upi_settlement_date', { required: 'Settlement date is required' })}
-                />
-                <FormErrorMessage>{errors.upi_settlement_date?.message}</FormErrorMessage>
-              </FormControl>
-              <HStack spacing={4} width="100%">
-                <FormControl>
-                  <FormLabel>UPI Reference Number</FormLabel>
-                  <Input type="text" {...register('upi_reference_number')} />
-                </FormControl>
-                <FormControl>
-                  <FormLabel>Batch Number</FormLabel>
-                  <Input type="text" {...register('batch_number')} />
-                </FormControl>
-              </HStack>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('upi_notes')} rows={3} />
               </FormControl>
             </VStack>
           </Box>
@@ -626,7 +783,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             <Heading size="md" mb={4}>Bank Charge Details</Heading>
             <VStack spacing={4}>
               <FormControl isRequired isInvalid={!!errors.charge_type}>
-                <FormLabel>Charge Type</FormLabel>
+                <FormLabel>Bank Charge Type</FormLabel>
                 <Select {...register('charge_type', { required: 'Charge type is required' })} placeholder="--Select--">
                   <option value={BankChargeType.NEFT_CHARGE}>NEFT Charge</option>
                   <option value={BankChargeType.IMPS_CHARGE}>IMPS Charge</option>
@@ -639,17 +796,17 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                 </Select>
                 <FormErrorMessage>{errors.charge_type?.message}</FormErrorMessage>
               </FormControl>
-              <FormControl isRequired isInvalid={!!errors.charge_date}>
-                <FormLabel>Charge Date</FormLabel>
+              <FormControl isRequired isInvalid={!!errors.debit_date}>
+                <FormLabel>Date of Debit</FormLabel>
                 <Input
                   type="date"
-                  {...register('charge_date', { required: 'Charge date is required' })}
+                  {...register('debit_date', { required: 'Date of debit is required' })}
                 />
-                <FormErrorMessage>{errors.charge_date?.message}</FormErrorMessage>
+                <FormErrorMessage>{errors.debit_date?.message}</FormErrorMessage>
               </FormControl>
               <FormControl>
                 <FormLabel>Notes</FormLabel>
-                <Textarea {...register('charge_notes')} rows={3} />
+                <Textarea {...register('description')} rows={3} />
               </FormControl>
             </VStack>
           </Box>
@@ -724,7 +881,7 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
               {/* Recipient selection for non-account-transfer and non-UPI-settlement transactions */}
               {watchedTransactionType !== TransactionType.ACCOUNT_TRANSFER && 
-               watchedTransactionType !== TransactionType.UPI_SETTLEMENT && (
+               watchedTransactionType !== TransactionType.SETTLEMENT && (
                 <FormControl 
                   isRequired={
                     watchedTransactionType === TransactionType.CHEQUE_RECEIVED || 

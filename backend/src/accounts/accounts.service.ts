@@ -11,8 +11,8 @@ import { Repository } from 'typeorm';
 import { Account, AccountType } from './accounts.entity';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
-import { Transaction } from 'src/transactions/transactions.entity';
-import { TransactionStatus } from 'src/transactions/transactions.enums';
+import { Transaction } from '../transactions/transactions.entity';
+import { TransactionStatus } from '../transactions/transactions.enums';
 import { RecipientsService } from '../recipients/recipients.service';
 import { RecipientType } from '../recipients/recipients.entity';
 
@@ -43,6 +43,16 @@ export class AccountsService implements OnModuleInit {
 
   /** 1. Create a new account */
   async create(createAccountDto: CreateAccountDto): Promise<Account> {
+    // Check for duplicate account names
+    const existingByName = await this.accountRepository.findOne({
+      where: { account_name: createAccountDto.account_name },
+    });
+    if (existingByName) {
+      throw new BadRequestException(
+        `An account with the name "${createAccountDto.account_name}" already exists. Please use a different account name.`,
+      );
+    }
+
     // Only check for duplicate account numbers if an account number is provided
     if (createAccountDto.account_number) {
       const existing = await this.accountRepository.findOne({
@@ -91,6 +101,21 @@ export class AccountsService implements OnModuleInit {
       throw new NotFoundException('Account not found.');
     }
 
+    // Check for duplicate account names if name is being updated
+    if (
+      updateAccountDto.account_name &&
+      updateAccountDto.account_name !== account.account_name
+    ) {
+      const existingByName = await this.accountRepository.findOne({
+        where: { account_name: updateAccountDto.account_name },
+      });
+      if (existingByName) {
+        throw new BadRequestException(
+          `An account with the name "${updateAccountDto.account_name}" already exists. Please use a different account name.`,
+        );
+      }
+    }
+
     // Check if opening balance is being updated
     const isOpeningBalanceUpdated =
       updateAccountDto.opening_balance !== undefined;
@@ -128,7 +153,7 @@ export class AccountsService implements OnModuleInit {
   }
 
   /** 5. Delete account by ID with cascade deletion of transactions and recipients */
-  async remove(id: number): Promise<void> {
+  async remove(id: number): Promise<any> {
     const account = await this.accountRepository.findOne({
       where: { id },
       relations: ['transactions', 'destination_transactions', 'recipient'],
@@ -152,12 +177,26 @@ export class AccountsService implements OnModuleInit {
       );
     }
 
+    // Store account details before deletion for return value
+    const deletedAccountInfo = {
+      id: account.id,
+      account_name: account.account_name,
+      account_type: account.account_type,
+      account_number: account.account_number,
+      bank_name: account.bank_name,
+      opening_balance: account.opening_balance,
+      current_balance: account.current_balance,
+      notes: account.notes,
+    };
+
     // Delete the account - TypeORM cascade will handle:
     // 1. All transactions where this account is the main account
     // 2. All transactions where this account is the destination (to_account)
     // 3. The associated recipient (if exists)
     // 4. All transaction detail entities (due to cascade: true in Transaction entity)
     await this.accountRepository.remove(account);
+
+    return deletedAccountInfo;
   }
 
   /** 6. Find account by account number */

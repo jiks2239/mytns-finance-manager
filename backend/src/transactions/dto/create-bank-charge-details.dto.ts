@@ -6,7 +6,7 @@ export class CreateBankChargeDetailsDto {
   charge_type: BankChargeType;
 
   @IsDateString()
-  charge_date: string;
+  debit_date: string; // Renamed from charge_date
 
   @IsString()
   @IsOptional()

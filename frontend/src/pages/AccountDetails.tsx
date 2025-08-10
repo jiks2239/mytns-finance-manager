@@ -6,7 +6,7 @@ import {
 } from '@chakra-ui/react';
 import { ArrowBackIcon, AddIcon, ViewIcon, EditIcon, DeleteIcon, InfoOutlineIcon, ChevronUpIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import { FaUniversity, FaWallet } from 'react-icons/fa';
-import AddTransactionModal from '../components/AddTransactionModal';
+import AddTransactionWizard from '../components/AddTransactionWizard';
 import EditTransactionModal from '../components/EditTransactionModal';
 import EditAccountModal from '../components/EditAccountModal';
 import DeleteAccountModal from '../components/DeleteAccountModal';
@@ -54,12 +54,28 @@ const TRANSACTION_STATUS_LABELS: { [key: string]: string } = {
   
   // Error/Exception statuses
   bounced: 'Bounced',
-  stopped: 'Stopped',
   cancelled: 'Cancelled',
   failed: 'Failed',
   
   // Legacy status
   completed: 'Completed',
+};
+
+// Helper function to get status with red/green indicator
+const getStatusWithIndicator = (status: string): string => {
+  // Green statuses (these update account balance)
+  const greenStatuses = ['deposited', 'cleared', 'transferred', 'settled', 'debited', 'completed'];
+  // Red statuses (these do NOT update account balance)
+  const redStatuses = ['pending', 'bounced', 'cancelled', 'failed'];
+  
+  const indicator = greenStatuses.includes(status.toLowerCase()) 
+    ? '🟢 ' 
+    : redStatuses.includes(status.toLowerCase()) 
+    ? '🔴 ' 
+    : '⚪ '; // Default for unknown statuses
+  
+  const label = TRANSACTION_STATUS_LABELS[status] || status || '-';
+  return `${indicator}${label}`;
 };
 
 const AccountDetails: React.FC = () => {
@@ -141,14 +157,25 @@ const AccountDetails: React.FC = () => {
         return (tx.cash_deposit_details as { deposit_date?: string })?.deposit_date || null;
       
       case 'cheque_received':
-      case 'cheque_given':
+      case 'cheque_given': {
         // Cheque transactions: Show cleared date if cleared, otherwise due date
+        const chequeDetails = tx.cheque_details as { 
+          cheque_cleared_date?: string;
+          cheque_due_date?: string;
+          cheque_issue_date?: string;
+        };
+        
         if (tx.status === 'cleared') {
-          return (tx.cheque_details as { cheque_cleared_date?: string })?.cheque_cleared_date || null;
+          // For cleared status: try cleared date, fallback to due date, then given date
+          return chequeDetails?.cheque_cleared_date || 
+                 chequeDetails?.cheque_due_date || 
+                 chequeDetails?.cheque_issue_date || null;
         } else {
-          // For pending, bounced, cancelled - show due date
-          return (tx.cheque_details as { cheque_due_date?: string })?.cheque_due_date || null;
+          // For pending, bounced, cancelled: try due date, fallback to issue date
+          return chequeDetails?.cheque_due_date || 
+                 chequeDetails?.cheque_issue_date || null;
         }
+      }
       
       case 'bank_transfer_in':
       case 'bank_transfer_out':
@@ -406,9 +433,20 @@ const AccountDetails: React.FC = () => {
         {/* Transactions Table */}
         <Flex align="center" justify="space-between" mb={2} gap={2} flexWrap="wrap">
           <Heading as="h3" size="md" color={subHeadingColor} fontWeight="bold">Transactions</Heading>
-          <Button leftIcon={<AddIcon />} colorScheme="green" variant="solid" onClick={() => setAddTxOpen(true)}>
-            Add Transaction
-          </Button>
+          <Stack direction={{ base: 'column', sm: 'row' }} spacing={2}>
+            <Button 
+              leftIcon={<ViewIcon />} 
+              colorScheme="blue" 
+              variant="outline" 
+              onClick={() => navigate(`/accounts/${id}/transactions`)}
+              size="sm"
+            >
+              View All Transactions
+            </Button>
+            <Button leftIcon={<AddIcon />} colorScheme="green" variant="solid" onClick={() => setAddTxOpen(true)} size="sm">
+              Add Transaction
+            </Button>
+          </Stack>
         </Flex>
         {sortedTransactions.length === 0 ? (
           <Text color="gray.500" mb={6} textAlign="center">No transactions found.</Text>
@@ -493,7 +531,7 @@ const AccountDetails: React.FC = () => {
                         )}
                       </Td>
                       <Td fontSize="sm" whiteSpace="nowrap">
-                        {TRANSACTION_STATUS_LABELS[tx.status] || tx.status || '-'}
+                        {getStatusWithIndicator(tx.status || '')}
                       </Td>
                       <Td textAlign="center" px={2}>
                         <Stack direction="row" spacing={0} justify="center" align="center">
@@ -556,7 +594,7 @@ const AccountDetails: React.FC = () => {
           </Button>
         </Flex>
       </Box>
-      <AddTransactionModal
+      <AddTransactionWizard
         isOpen={addTxOpen}
         accountId={id!}
         onClose={() => setAddTxOpen(false)}

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import AccountDashboardCard from '../components/AccountDashboardCard';
 import AddAccountModal from '../components/AddAccountModal';
 import EditAccountModal from '../components/EditAccountModal';
-import AddTransactionModal from '../components/AddTransactionModal';
+import AddTransactionWizard from '../components/AddTransactionWizard';
 import DeleteAccountModal from '../components/DeleteAccountModal';
 import api, { type Account } from '../api';
 
@@ -185,9 +185,9 @@ const Home: React.FC = () => {
         />
       )}
       
-      {/* Add Transaction Modal */}
+      {/* Add Transaction Wizard */}
       {selectedAccount && (
-        <AddTransactionModal
+        <AddTransactionWizard
           isOpen={addTransactionModalOpen}
           accountId={selectedAccount.id.toString()}
           onClose={() => {

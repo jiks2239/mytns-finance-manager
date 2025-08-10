@@ -46,7 +46,6 @@ const TRANSACTION_STATUS_LABELS: { [key: string]: string } = {
   
   // Error/Exception statuses
   bounced: 'Bounced',
-  stopped: 'Stopped',
   cancelled: 'Cancelled',
   failed: 'Failed',
   

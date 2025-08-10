@@ -25,7 +25,6 @@ export type TransactionStatus =
   | 'debited'
   | 'received'
   | 'bounced'
-  | 'stopped'
   | 'failed'
   | 'completed';
 
@@ -38,7 +37,7 @@ export const VALID_STATUSES_BY_TYPE: Record<TransactionType, TransactionStatus[]
   // Credit Transactions
   cash_deposit: ['pending', 'deposited', 'cancelled'],
   cheque_received: ['pending', 'cleared', 'bounced', 'cancelled'],
-  bank_transfer_in: ['pending', 'settled', 'cancelled'],
+  bank_transfer_in: ['pending', 'transferred', 'cancelled'],
   upi_settlement: ['pending', 'settled', 'cancelled'],
 
   // Debit Transactions
@@ -67,7 +66,6 @@ export const STATUS_LABELS: Record<TransactionStatus, string> = {
   debited: 'Debited',
   received: 'Received',
   bounced: 'Bounced',
-  stopped: 'Stopped',
   failed: 'Failed',
   completed: 'Completed',
 };
@@ -85,7 +83,6 @@ export const STATUS_COLORS: Record<TransactionStatus, string> = {
   debited: 'blue',
   received: 'green',
   bounced: 'red',
-  stopped: 'red',
   failed: 'red',
   completed: 'green',
 };
@@ -151,7 +148,7 @@ export function shouldShowInList(
 export const COMPLETION_STATUS: Record<TransactionType, TransactionStatus> = {
   cash_deposit: 'deposited',
   cheque_received: 'cleared',
-  bank_transfer_in: 'settled',
+  bank_transfer_in: 'transferred',
   upi_settlement: 'settled',
   cheque_given: 'cleared',
   bank_transfer_out: 'transferred',
@@ -175,7 +172,7 @@ export function isCompletedStatus(transactionType: TransactionType, status: Tran
  * Check if a status represents a failed/error state
  */
 export function isErrorStatus(status: TransactionStatus): boolean {
-  return ['bounced', 'stopped', 'failed', 'cancelled'].includes(status);
+  return ['bounced', 'failed', 'cancelled'].includes(status);
 }
 
 /**

@@ -62,8 +62,11 @@ export class AccountsController {
   /** 5. Delete an account (with restriction if linked transactions) */
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
-    await this.accountsService.remove(id);
-    return { message: 'Account deleted successfully.' };
+    const deletedAccount = await this.accountsService.remove(id);
+    return {
+      message: 'Account deleted successfully',
+      deleted_account: deletedAccount,
+    };
   }
 
   /** 6. Get an account by account number */

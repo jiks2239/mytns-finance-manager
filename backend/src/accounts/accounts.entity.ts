@@ -22,7 +22,7 @@ export class Account {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ length: 100 })
+  @Column({ length: 100, unique: true })
   account_name: string;
 
   @Column({ length: 30, unique: true, nullable: true })

@@ -33,9 +33,10 @@ interface CashDepositDetails {
 
 interface ChequeDetails {
   cheque_number?: string;
-  cheque_given_date?: string;
+  cheque_issue_date?: string;        // Renamed from cheque_given_date
   cheque_due_date?: string;
   cheque_cleared_date?: string;
+  cheque_bounce_charge?: number;     // New field for bounce charges
   notes?: string;
 }
 
@@ -63,7 +64,7 @@ interface AccountTransferDetails {
 
 interface BankChargeDetails {
   charge_type?: string;
-  charge_date?: string;
+  debit_date?: string;              // Renamed from charge_date
   notes?: string;
 }
 
@@ -98,61 +99,50 @@ type EditTransactionFormData = {
   description: string;
   status: string;
   recipient: string;
-  
-  // Cash Deposit fields
-  deposit_date: string;
-  cash_notes: string;
-  
-  // Cheque fields
+  // Cheque details
   cheque_number: string;
-  cheque_given_date: string;
+  cheque_issue_date: string;          // Renamed from cheque_given_date
   cheque_due_date: string;
   cheque_cleared_date: string;
-  cheque_notes: string;
-  
-  // Bank Transfer fields
+  cheque_bounce_charge: number;       // New field
+  // Bank charge details
+  charge_type: string;
+  debit_date: string;                 // Renamed from charge_date
+  // Other details
+  deposit_date: string;
   transfer_date: string;
   settlement_date: string;
+  upi_settlement_date: string;        // For UPI settlements
   transfer_mode: string;
   reference_number: string;
-  transfer_notes: string;
-  
-  // UPI Settlement fields
-  upi_settlement_date: string;
   upi_reference_number: string;
   batch_number: string;
-  upi_notes: string;
-  
-  // Account Transfer fields
-  to_account_id: string;
-  account_transfer_date: string;
+  to_account_id: string;             // For account transfers
+  account_transfer_date: string;     // For account transfers
   transfer_reference: string;
   purpose: string;
-  account_transfer_notes: string;
-  
-  // Bank Charge fields
-  charge_type: string;
+  notes: string;
+  // Legacy field (backward compatibility)
   charge_date: string;
-  charge_notes: string;
 };
 
 // Helper function to get the primary transaction date from form data
 const getTransactionDateFromFormData = (data: EditTransactionFormData): string => {
   switch (data.transaction_type) {
     case 'cash_deposit':
-      return data.deposit_date;
+      return formatDateForAPI(data.deposit_date) || '';
     case 'cheque_received':
     case 'cheque_given':
-      return data.cheque_given_date;
+      return formatDateForAPI(data.cheque_issue_date) || '';
     case 'bank_transfer_in':
     case 'bank_transfer_out':
-      return data.transfer_date;
+      return formatDateForAPI(data.transfer_date) || '';
     case 'upi_settlement':
-      return data.upi_settlement_date;
+      return formatDateForAPI(data.upi_settlement_date) || '';
     case 'account_transfer':
-      return data.account_transfer_date;
+      return formatDateForAPI(data.account_transfer_date) || '';
     case 'bank_charge':
-      return data.charge_date;
+      return formatDateForAPI(data.debit_date) || '';
     default:
       return '';
   }
@@ -170,6 +160,29 @@ const formatDateForInput = (dateString: string | undefined): string => {
     return date.toISOString().split('T')[0];
   } catch {
     return '';
+  }
+};
+
+// Helper function to convert YYYY-MM-DD date to ISO 8601 string
+const formatDateForAPI = (dateString: string | undefined): string | undefined => {
+  if (!dateString) return undefined;
+  
+  // Handle common placeholder or empty values
+  const trimmed = dateString.trim();
+  if (trimmed === '' || trimmed === 'dd/mm/yyyy' || trimmed === 'mm/dd/yyyy' || 
+      trimmed === 'yyyy-mm-dd' || trimmed === 'null' || trimmed === 'undefined') {
+    return undefined;
+  }
+  
+  try {
+    // Create date object from YYYY-MM-DD string
+    const date = new Date(dateString + 'T00:00:00.000Z');
+    if (isNaN(date.getTime())) return undefined;
+    
+    // Return full ISO 8601 string
+    return date.toISOString();
+  } catch {
+    return undefined;
   }
 };
 
@@ -210,29 +223,23 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       recipient: "",
       // Initialize all transaction-specific fields
       deposit_date: "",
-      cash_notes: "",
       cheque_number: "",
-      cheque_given_date: "",
+      cheque_issue_date: "",
       cheque_due_date: "",
       cheque_cleared_date: "",
-      cheque_notes: "",
       transfer_date: "",
       settlement_date: "",
       transfer_mode: "",
       reference_number: "",
-      transfer_notes: "",
       upi_settlement_date: "",
       upi_reference_number: "",
       batch_number: "",
-      upi_notes: "",
       to_account_id: "",
       account_transfer_date: "",
       transfer_reference: "",
       purpose: "",
-      account_transfer_notes: "",
       charge_type: "",
       charge_date: "",
-      charge_notes: "",
     },
   });
 
@@ -275,7 +282,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           if (transaction.cash_deposit_details) {
             const details = transaction.cash_deposit_details as CashDepositDetails;
             formValues.deposit_date = formatDateForInput(details.deposit_date);
-            formValues.cash_notes = details.notes || "";
           }
           break;
           
@@ -284,10 +290,9 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           if (transaction.cheque_details) {
             const details = transaction.cheque_details as ChequeDetails;
             formValues.cheque_number = details.cheque_number || "";
-            formValues.cheque_given_date = formatDateForInput(details.cheque_given_date);
+            formValues.cheque_issue_date = formatDateForInput(details.cheque_issue_date);
             formValues.cheque_due_date = formatDateForInput(details.cheque_due_date);
             formValues.cheque_cleared_date = formatDateForInput(details.cheque_cleared_date);
-            formValues.cheque_notes = details.notes || "";
           }
           break;
           
@@ -299,7 +304,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             formValues.settlement_date = formatDateForInput(details.settlement_date);
             formValues.transfer_mode = details.transfer_mode || "";
             formValues.reference_number = details.reference_number || "";
-            formValues.transfer_notes = details.notes || "";
           }
           break;
           
@@ -309,7 +313,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             formValues.upi_settlement_date = formatDateForInput(details.settlement_date);
             formValues.upi_reference_number = details.upi_reference_number || "";
             formValues.batch_number = details.batch_number || "";
-            formValues.upi_notes = details.notes || "";
           }
           break;
           
@@ -320,7 +323,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             formValues.account_transfer_date = formatDateForInput(details.transfer_date);
             formValues.transfer_reference = details.transfer_reference || "";
             formValues.purpose = details.purpose || "";
-            formValues.account_transfer_notes = details.notes || "";
           }
           break;
           
@@ -328,8 +330,7 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           if (transaction.bank_charge_details) {
             const details = transaction.bank_charge_details as BankChargeDetails;
             formValues.charge_type = details.charge_type || "";
-            formValues.charge_date = formatDateForInput(details.charge_date);
-            formValues.charge_notes = details.notes || "";
+            formValues.debit_date = formatDateForInput(details.debit_date);
           }
           break;
       }
@@ -415,10 +416,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 />
                 <FormErrorMessage>{errors.deposit_date?.message}</FormErrorMessage>
               </FormControl>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('cash_notes')} rows={3} />
-              </FormControl>
             </VStack>
           </Box>
         );
@@ -439,8 +436,10 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               </FormControl>
               <HStack spacing={4} width="100%">
                 <FormControl>
-                  <FormLabel>Given Date</FormLabel>
-                  <Input type="date" {...register('cheque_given_date')} />
+                  <FormLabel>
+                    {watchedTransactionType === 'cheque_received' ? 'Received Date' : 'Given Date'}
+                  </FormLabel>
+                  <Input type="date" {...register('cheque_issue_date')} />
                 </FormControl>
                 <FormControl isRequired isInvalid={!!errors.cheque_due_date}>
                   <FormLabel>Due Date</FormLabel>
@@ -469,10 +468,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   })}
                 />
                 <FormErrorMessage>{errors.cheque_cleared_date?.message}</FormErrorMessage>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('cheque_notes')} rows={3} />
               </FormControl>
             </VStack>
           </Box>
@@ -510,10 +505,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 <FormLabel>Reference Number</FormLabel>
                 <Input type="text" {...register('reference_number')} />
               </FormControl>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('transfer_notes')} rows={3} />
-              </FormControl>
             </VStack>
           </Box>
         );
@@ -544,10 +535,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 <FormLabel>Reference Number</FormLabel>
                 <Input type="text" {...register('reference_number')} />
               </FormControl>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('transfer_notes')} rows={3} />
-              </FormControl>
             </VStack>
           </Box>
         );
@@ -575,10 +562,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   <Input type="text" {...register('batch_number')} />
                 </FormControl>
               </HStack>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('upi_notes')} rows={3} />
-              </FormControl>
             </VStack>
           </Box>
         );
@@ -617,10 +600,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 <FormLabel>Purpose</FormLabel>
                 <Input type="text" {...register('purpose')} />
               </FormControl>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('account_transfer_notes')} rows={3} />
-              </FormControl>
             </VStack>
           </Box>
         );
@@ -651,10 +630,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   {...register('charge_date', { required: 'Charge date is required' })}
                 />
                 <FormErrorMessage>{errors.charge_date?.message}</FormErrorMessage>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea {...register('charge_notes')} rows={3} />
               </FormControl>
             </VStack>
           </Box>
@@ -705,59 +680,66 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       switch (data.transaction_type) {
         case 'cash_deposit':
           payload.cash_deposit_details = {
-            deposit_date: data.deposit_date,
-            notes: data.cash_notes,
+            deposit_date: formatDateForAPI(data.deposit_date),
           };
           break;
 
         case 'cheque_received':
-        case 'cheque_given':
-          payload.cheque_details = {
+        case 'cheque_given': {
+          const chequeDetails: Record<string, string | undefined> = {
             cheque_number: data.cheque_number,
-            cheque_given_date: data.cheque_given_date,
-            cheque_due_date: data.cheque_due_date,
-            cheque_cleared_date: data.cheque_cleared_date,
-            notes: data.cheque_notes,
           };
+          
+          // Only add date fields if they have values
+          if (data.cheque_issue_date) {
+            chequeDetails.cheque_issue_date = formatDateForAPI(data.cheque_issue_date);
+          }
+          if (data.cheque_due_date) {
+            chequeDetails.cheque_due_date = formatDateForAPI(data.cheque_due_date);
+          }
+          if (data.cheque_cleared_date) {
+            chequeDetails.cheque_cleared_date = formatDateForAPI(data.cheque_cleared_date);
+          }
+          
+          payload.cheque_details = chequeDetails;
           break;
+        }
 
         case 'bank_transfer_in':
         case 'bank_transfer_out':
           payload.bank_transfer_details = {
-            transfer_date: data.transfer_date,
-            settlement_date: data.settlement_date,
+            transfer_date: formatDateForAPI(data.transfer_date),
+            settlement_date: formatDateForAPI(data.settlement_date),
             transfer_mode: data.transfer_mode,
             reference_number: data.reference_number,
-            notes: data.transfer_notes,
           };
           break;
 
         case 'upi_settlement':
           payload.upi_settlement_details = {
-            settlement_date: data.upi_settlement_date,
+            settlement_date: formatDateForAPI(data.upi_settlement_date),
             upi_reference_number: data.upi_reference_number,
             batch_number: data.batch_number,
-            notes: data.upi_notes,
           };
           break;
 
         case 'account_transfer':
           payload.account_transfer_details = {
-            transfer_date: data.account_transfer_date,
+            transfer_date: formatDateForAPI(data.account_transfer_date),
             transfer_reference: data.transfer_reference,
             purpose: data.purpose,
-            notes: data.account_transfer_notes,
           };
           break;
 
         case 'bank_charge':
           payload.bank_charge_details = {
             charge_type: data.charge_type,
-            charge_date: data.charge_date,
-            notes: data.charge_notes,
+            charge_date: formatDateForAPI(data.charge_date),
           };
           break;
       }
+      
+      console.log('UPDATE PAYLOAD:', JSON.stringify(payload, null, 2));
       
       await api.transactions.update(Number(transaction.id), payload);
       

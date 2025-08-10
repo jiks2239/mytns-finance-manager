@@ -44,7 +44,11 @@ export class CreateChequeTransactionDetailsDto {
 
   @IsDateString()
   @IsOptional()
-  cheque_given_date?: string;
+  cheque_issue_date?: string; // Renamed from cheque_given_date
+
+  @IsDateString()
+  @IsOptional()
+  cheque_submitted_date?: string; // NEW: For cheque submission tracking
 
   @IsDateString()
   cheque_due_date: string;
@@ -55,6 +59,9 @@ export class CreateChequeTransactionDetailsDto {
     message: 'Cheque cleared date cannot be before the due date',
   })
   cheque_cleared_date?: string;
+
+  @IsOptional()
+  cheque_bounce_charge?: number; // NEW: For bounced cheques
 
   @IsString()
   @IsOptional()
